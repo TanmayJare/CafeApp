@@ -1,0 +1,395 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum UserRole {
+  CUSTOMER
+  STAFF
+  RIDER
+  SUPER_ADMIN
+}
+
+enum AddressType {
+  SOCIETY
+  EXTERNAL
+}
+
+enum OrderStatus {
+  PLACED
+  ACCEPTED
+  PREPARING
+  READY
+  ASSIGNED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum RejectReason {
+  ITEM_UNAVAILABLE
+  KITCHEN_CLOSED
+  OUT_OF_STOCK
+}
+
+enum PaymentMethod {
+  COD
+  UPI
+  CARD
+  NET_BANKING
+  WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum OptionType {
+  SIZE
+  ADDON
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT
+}
+
+enum ZoneType {
+  PRIMARY    // Residential society — lower delivery fee
+  SECONDARY  // Within 7 km — standard fee
+}
+
+// ─── Auth ────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String?
+  name          String?
+  role          UserRole  @default(CUSTOMER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  addresses        Address[]
+  cart             Cart?
+  orders           Order[]         @relation("CustomerOrders")
+  riderOrders      Order[]         @relation("RiderOrders")
+  riderProfile     RiderProfile?
+  notifications    Notification[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model OtpVerification {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email, code])
+  @@index([expiresAt])
+}
+
+// ─── Café Config (singleton) ─────────────────────────────
+
+model CafeConfig {
+  id                  String  @id @default("default")
+  name                String
+  address             String
+  latitude            Float
+  longitude           Float
+  taxRate             Float   @default(0.05)   // 5% GST
+  primaryDeliveryFee  Float   @default(20)       // Society
+  secondaryDeliveryFee Float  @default(40)       // 7 km zone
+  deliveryRadiusKm    Float   @default(7)
+  societyName         String
+  isOpen              Boolean @default(true)
+  openingTime         String  @default("07:00")
+  closingTime         String  @default("22:00")
+}
+
+// ─── Society Structure ───────────────────────────────────
+
+model SocietyTower {
+  id        String   @id @default(cuid())
+  name      String   // e.g. "Tower A"
+  wings     String[] // e.g. ["A", "B"]
+  maxFloors Int      @default(20)
+}
+
+// ─── Addresses ───────────────────────────────────────────
+
+model Address {
+  id         String      @id @default(cuid())
+  userId     String
+  type       AddressType
+  label      String      @default("Home") // Home, Work, Other
+  isDefault  Boolean     @default(false)
+
+  // Society fields
+  societyName String?
+  tower       String?
+  wing        String?
+  floor       String?
+  flatNumber  String?
+
+  // External fields
+  addressLine String?
+  landmark    String?
+  pincode     String?
+  latitude    Float?
+  longitude   Float?
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([userId])
+}
+
+// ─── Menu ────────────────────────────────────────────────
+
+model Category {
+  id           String     @id @default(cuid())
+  name         String
+  description  String?
+  imageUrl     String?
+  sortOrder    Int        @default(0)
+  isActive     Boolean    @default(true)
+  items        MenuItem[]
+  createdAt    DateTime   @default(now())
+}
+
+model MenuItem {
+  id           String           @id @default(cuid())
+  categoryId   String
+  name         String
+  description  String?
+  imageUrl     String?
+  price        Float
+  isAvailable  Boolean          @default(true)
+  sortOrder    Int              @default(0)
+  options      MenuItemOption[]
+  category     Category         @relation(fields: [categoryId], references: [id])
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([categoryId])
+  @@index([isAvailable])
+}
+
+model MenuItemOption {
+  id         String     @id @default(cuid())
+  menuItemId String
+  type       OptionType
+  name       String     // "Large", "Extra Cheese"
+  priceDelta Float      @default(0)
+  isDefault  Boolean    @default(false)
+  menuItem   MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([menuItemId])
+}
+
+model DailySpecial {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  price       Float
+  imageUrl    String?
+  availableOn DateTime @db.Date
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([availableOn])
+}
+
+// ─── Home Screen Content ───────────────────────────────────
+
+model Banner {
+  id        String   @id @default(cuid())
+  title     String
+  subtitle  String?
+  imageUrl  String?
+  linkType  String?  // "category", "product", "promo"
+  linkId    String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+}
+
+// ─── Cart ────────────────────────────────────────────────
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  couponCode String?
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id         String           @id @default(cuid())
+  cartId     String
+  menuItemId String
+  quantity   Int              @default(1)
+  cart       Cart             @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem         @relation(fields: [menuItemId], references: [id])
+  options    CartItemOption[]
+
+  @@unique([cartId, menuItemId])
+}
+
+model CartItemOption {
+  id           String @id @default(cuid())
+  cartItemId   String
+  optionName   String
+  priceDelta   Float
+  cartItem     CartItem @relation(fields: [cartItemId], references: [id], onDelete: Cascade)
+}
+
+// ─── Coupons ─────────────────────────────────────────────
+
+model Coupon {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  discountType  DiscountType
+  discountValue Float
+  minOrderValue Float        @default(0)
+  maxDiscount   Float?
+  expiresAt     DateTime?
+  isActive      Boolean      @default(true)
+  usageLimit    Int?
+  usedCount     Int          @default(0)
+}
+
+// ─── Orders ──────────────────────────────────────────────
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique  // CC-20260617-001
+  customerId      String
+  riderId         String?
+  addressId       String
+  status          OrderStatus @default(PLACED)
+  rejectReason    RejectReason?
+
+  subtotal        Float
+  taxAmount       Float
+  deliveryFee     Float
+  discountAmount  Float       @default(0)
+  grandTotal      Float
+
+  couponCode      String?
+  zoneType        ZoneType
+  paymentMethod   PaymentMethod
+  notes           String?
+
+  customer        User        @relation("CustomerOrders", fields: [customerId], references: [id])
+  rider           User?       @relation("RiderOrders", fields: [riderId], references: [id])
+  address         Address     @relation(fields: [addressId], references: [id])
+  items           OrderItem[]
+  statusHistory   OrderStatusHistory[]
+  payment         Payment?
+  riderLocations  RiderLocation[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deliveredAt     DateTime?
+
+  @@index([status, createdAt])
+  @@index([customerId])
+  @@index([riderId])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  menuItemId  String
+  name        String  // Snapshot at order time
+  unitPrice   Float
+  quantity    Int
+  options     Json    // [{ name, priceDelta }]
+  lineTotal   Float
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem    MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  status    OrderStatus
+  note      String?
+  createdAt DateTime    @default(now())
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+// ─── Payments ────────────────────────────────────────────
+
+model Payment {
+  id                String        @id @default(cuid())
+  orderId           String        @unique
+  method            PaymentMethod
+  status            PaymentStatus @default(PENDING)
+  amount            Float
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+  order             Order         @relation(fields: [orderId], references: [id])
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+// ─── Riders ──────────────────────────────────────────────
+
+model RiderProfile {
+  id         String  @id @default(cuid())
+  userId     String  @unique
+  isOnline   Boolean @default(false)
+  user       User    @relation(fields: [userId], references: [id])
+}
+
+model RiderLocation {
+  id        String   @id @default(cuid())
+  riderId   String
+  orderId   String?
+  latitude  Float
+  longitude Float
+  speed     Float?
+  timestamp DateTime @default(now())
+  order     Order?   @relation(fields: [orderId], references: [id])
+
+  @@index([riderId, timestamp])
+}
+
+// ─── Notifications (in-app, v1) ──────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  type      String   // ORDER_STATUS, RIDER_ASSIGNED, etc.
+  data      Json?
+  isRead    Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
