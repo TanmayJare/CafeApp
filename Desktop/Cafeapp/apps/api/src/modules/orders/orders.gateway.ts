@@ -23,9 +23,7 @@ interface AuthenticatedSocket extends Socket {
   },
   namespace: '/orders',
 })
-export class OrdersGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
@@ -35,8 +33,10 @@ export class OrdersGateway
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
-      const token = client.handshake.auth.token || client.handshake.headers.authorization?.split(' ')[1];
-      
+      const token =
+        client.handshake.auth.token ||
+        client.handshake.headers.authorization?.split(' ')[1];
+
       if (!token) {
         this.logger.warn(`Client ${client.id} connection rejected: No token`);
         client.disconnect();
@@ -47,7 +47,9 @@ export class OrdersGateway
       client.userId = payload.sub;
       client.userRole = payload.role;
 
-      this.logger.log(`Client connected: ${client.id} (User: ${client.userId}, Role: ${client.userRole})`);
+      this.logger.log(
+        `Client connected: ${client.id} (User: ${client.userId}, Role: ${client.userRole})`,
+      );
 
       // Join staff room if user is staff/admin
       if (client.userRole === 'STAFF' || client.userRole === 'ADMIN') {
@@ -55,7 +57,10 @@ export class OrdersGateway
         this.logger.log(`Client ${client.id} joined staff room`);
       }
     } catch (error) {
-      this.logger.error(`Authentication failed for client ${client.id}:`, error.message);
+      this.logger.error(
+        `Authentication failed for client ${client.id}:`,
+        error.message,
+      );
       client.disconnect();
     }
   }

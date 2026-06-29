@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
@@ -7,9 +11,9 @@ import { ZoneType } from '@cafeconnect/database';
 @Injectable()
 export class AddressService {
   // Cafe location (hardcoded for MVP)
-  private readonly CAFE_LAT = 19.0760; // Mumbai coordinates
+  private readonly CAFE_LAT = 19.076; // Mumbai coordinates
   private readonly CAFE_LNG = 72.8777;
-  
+
   // Zone boundaries in kilometers
   private readonly PRIMARY_ZONE_RADIUS = 3; // 3km
   private readonly SECONDARY_ZONE_RADIUS = 7; // 7km
@@ -19,16 +23,23 @@ export class AddressService {
   /**
    * Calculate distance between two coordinates using Haversine formula
    */
-  calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  calculateDistance(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
     const R = 6371; // Earth's radius in km
     const dLat = this.toRad(lat2 - lat1);
     const dLng = this.toRad(lng2 - lng1);
-    
-    const a = 
+
+    const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    
+      Math.cos(this.toRad(lat1)) *
+        Math.cos(this.toRad(lat2)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
@@ -55,28 +66,30 @@ export class AddressService {
     // For EXTERNAL addresses, validate coordinates and check delivery range
     if (createAddressDto.type === 'EXTERNAL') {
       if (!latitude || !longitude) {
-        throw new BadRequestException('Latitude and longitude are required for external addresses');
+        throw new BadRequestException(
+          'Latitude and longitude are required for external addresses',
+        );
       }
 
       const distance = this.calculateDistance(
         this.CAFE_LAT,
         this.CAFE_LNG,
         latitude,
-        longitude
+        longitude,
       );
 
       const zone = this.determineZone(distance);
 
       if (!zone) {
         throw new BadRequestException(
-          `Address is outside delivery range. Maximum distance is ${this.SECONDARY_ZONE_RADIUS}km`
+          `Address is outside delivery range. Maximum distance is ${this.SECONDARY_ZONE_RADIUS}km`,
         );
       }
     }
 
     // Check if user already has 5 addresses
     const existingCount = await this.prisma.address.count({
-      where: { userId }
+      where: { userId },
     });
 
     if (existingCount >= 5) {
@@ -102,10 +115,7 @@ export class AddressService {
       where: {
         userId,
       },
-      orderBy: [
-        { isDefault: 'desc' },
-        { id: 'desc' },
-      ],
+      orderBy: [{ isDefault: 'desc' }, { id: 'desc' }],
     });
   }
 
@@ -133,25 +143,29 @@ export class AddressService {
     // If updating to EXTERNAL or updating coordinates, validate
     const finalType = type || existingAddress.type;
     if (finalType === 'EXTERNAL') {
-      const finalLat = latitude !== undefined ? latitude : existingAddress.latitude;
-      const finalLng = longitude !== undefined ? longitude : existingAddress.longitude;
+      const finalLat =
+        latitude !== undefined ? latitude : existingAddress.latitude;
+      const finalLng =
+        longitude !== undefined ? longitude : existingAddress.longitude;
 
       if (!finalLat || !finalLng) {
-        throw new BadRequestException('Latitude and longitude are required for external addresses');
+        throw new BadRequestException(
+          'Latitude and longitude are required for external addresses',
+        );
       }
 
       const distance = this.calculateDistance(
         this.CAFE_LAT,
         this.CAFE_LNG,
         finalLat,
-        finalLng
+        finalLng,
       );
 
       const zone = this.determineZone(distance);
 
       if (!zone) {
         throw new BadRequestException(
-          `Address is outside delivery range. Maximum distance is ${this.SECONDARY_ZONE_RADIUS}km`
+          `Address is outside delivery range. Maximum distance is ${this.SECONDARY_ZONE_RADIUS}km`,
         );
       }
     }

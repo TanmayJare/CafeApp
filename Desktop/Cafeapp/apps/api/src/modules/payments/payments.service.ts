@@ -9,13 +9,30 @@ export class PaymentsService {
   private razorpay: Razorpay;
 
   constructor(private configService: ConfigService) {
-    this.razorpay = new Razorpay({
-      key_id: this.configService.get<string>('RAZORPAY_KEY_ID'),
-      key_secret: this.configService.get<string>('RAZORPAY_KEY_SECRET'),
-    });
+    const keyId = this.configService.get<string>('RAZORPAY_KEY_ID');
+    const keySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
+
+    // Only initialize Razorpay if credentials are provided
+    if (keyId && keySecret) {
+      this.razorpay = new Razorpay({
+        key_id: keyId,
+        key_secret: keySecret,
+      });
+      this.logger.log('Razorpay initialized successfully');
+    } else {
+      this.logger.warn(
+        'Razorpay credentials not configured - payment features will be disabled',
+      );
+    }
   }
 
   async createOrder(amount: number, orderId: string) {
+    if (!this.razorpay) {
+      throw new Error(
+        'Razorpay is not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment variables.',
+      );
+    }
+
     try {
       const options = {
         amount: Math.round(amount * 100), // Convert to paise
@@ -48,19 +65,24 @@ export class PaymentsService {
   ): boolean {
     try {
       const text = `${razorpayOrderId}|${razorpayPaymentId}`;
-      const secret = this.configService.get<string>('RAZORPAY_KEY_SECRET') || '';
-      
+      const secret =
+        this.configService.get<string>('RAZORPAY_KEY_SECRET') || '';
+
       const generatedSignature = crypto
         .createHmac('sha256', secret)
         .update(text)
         .digest('hex');
 
       const isValid = generatedSignature === razorpaySignature;
-      
+
       if (isValid) {
-        this.logger.log(`Payment signature verified for order: ${razorpayOrderId}`);
+        this.logger.log(
+          `Payment signature verified for order: ${razorpayOrderId}`,
+        );
       } else {
-        this.logger.warn(`Invalid payment signature for order: ${razorpayOrderId}`);
+        this.logger.warn(
+          `Invalid payment signature for order: ${razorpayOrderId}`,
+        );
       }
 
       return isValid;
@@ -71,6 +93,12 @@ export class PaymentsService {
   }
 
   async getPaymentDetails(paymentId: string) {
+    if (!this.razorpay) {
+      throw new Error(
+        'Razorpay is not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment variables.',
+      );
+    }
+
     try {
       const payment = await this.razorpay.payments.fetch(paymentId);
       return payment;

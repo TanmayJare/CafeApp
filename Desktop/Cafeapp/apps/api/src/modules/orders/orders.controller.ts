@@ -27,10 +27,7 @@ export class OrdersController {
   }
 
   @Get()
-  findAll(
-    @Request() req,
-    @Query('status') status?: OrderStatus,
-  ) {
+  findAll(@Request() req, @Query('status') status?: OrderStatus) {
     return this.ordersService.findAll(req.user.id, req.user.role, status);
   }
 

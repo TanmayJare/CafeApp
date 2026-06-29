@@ -3,7 +3,7 @@
  * Tests all redesigned pages and functionality
  */
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = process.env.API_URL || 'http://localhost:3000/api';
 const CUSTOMER_WEB = 'http://localhost:3002';
 const STAFF_WEB = 'http://localhost:3001';
 
@@ -36,8 +36,11 @@ async function apiCall(endpoint: string, method: string = 'GET', body?: any, tok
   }
 
   const response = await fetch(`${API_URL}${endpoint}`, options);
-  const data = await response.json();
-  
+  let data: any = null;
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    data = await response.json();
+  }
   return { response, data };
 }
 
@@ -86,8 +89,9 @@ async function testCustomerAuth() {
     const duration = Date.now() - startTime;
     logTest('Verify OTP', 'PASS', `Token received`, duration);
     return verifyData.accessToken;
-  } catch (error: any) {
-    logTest('Customer Authentication', 'FAIL', error.message);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logTest('Customer Authentication', 'FAIL', message);
     return null;
   }
 }
@@ -124,7 +128,8 @@ async function testStaffAuth() {
     logTest('Staff Verify OTP', 'PASS', `Token received`, duration);
     return verifyData.accessToken;
   } catch (error) {
-    logTest('Staff Authentication', 'FAIL', error.message);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logTest('Staff Authentication', 'FAIL', message);
     return null;
   }
 }
@@ -151,7 +156,8 @@ async function testFetchMenu(token: string) {
     logTest('Fetch Menu', 'PASS', `${data.length} items found`, duration);
     return data;
   } catch (error) {
-    logTest('Fetch Menu', 'FAIL', error.message);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logTest('Fetch Menu', 'FAIL', message);
     return [];
   }
 }
@@ -209,8 +215,9 @@ async function testCreateOrder(token: string, menuItems: any[]) {
     const duration = Date.now() - startTime;
     logTest('Create Order', 'PASS', `Order ID: ${data.id}`, duration);
     return data;
-  } catch (error: any) {
-    logTest('Create Order', 'FAIL', error.message);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logTest('Create Order', 'FAIL', message);
     return null;
   }
 }
@@ -232,7 +239,8 @@ async function testFetchOrderDetails(token: string, orderId: string) {
     logTest('Fetch Order Details', 'PASS', `Status: ${data.status}`, duration);
     return data;
   } catch (error) {
-    logTest('Fetch Order Details', 'FAIL', error.message);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logTest('Fetch Order Details', 'FAIL', message);
     return null;
   }
 }
@@ -246,7 +254,7 @@ async function testUpdateOrderStatus(staffToken: string, orderId: string) {
     const statuses = ['ACCEPTED', 'PREPARING', 'READY'];
     
     for (const status of statuses) {
-      const { response, data } = await apiCall(
+      const { response } = await apiCall(
         `/orders/${orderId}/status`,
         'PATCH',
         { status },
@@ -268,7 +276,8 @@ async function testUpdateOrderStatus(staffToken: string, orderId: string) {
     logTest('Order Status Updates', 'PASS', `All statuses updated`, duration);
     return true;
   } catch (error) {
-    logTest('Update Order Status', 'FAIL', error.message);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logTest('Update Order Status', 'FAIL', message);
     return false;
   }
 }
@@ -290,7 +299,8 @@ async function testFetchCustomerOrders(token: string) {
     logTest('Fetch Customer Orders', 'PASS', `${data.length} orders found`, duration);
     return data;
   } catch (error) {
-    logTest('Fetch Customer Orders', 'FAIL', error.message);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logTest('Fetch Customer Orders', 'FAIL', message);
     return [];
   }
 }
@@ -317,7 +327,8 @@ async function testFrontendPages() {
         logTest(`${page.name} Accessible`, 'FAIL', `Status: ${response.status}`);
       }
     } catch (error) {
-      logTest(`${page.name} Accessible`, 'FAIL', error.message);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logTest(`${page.name} Accessible`, 'FAIL', message);
     }
   }
 }
@@ -325,8 +336,26 @@ async function testFrontendPages() {
 // Main test runner
 async function runTests() {
   console.log('🚀 Starting Phase 1 End-to-End Tests\n');
+  console.log(`   API base: ${API_URL}`);
   console.log('=' .repeat(60));
-  
+
+  // Pre-flight: verify the backend is reachable
+  try {
+    const healthUrl = `${API_URL}/health`;
+    console.log(`\n⏳ Checking backend health at ${healthUrl} ...`);
+    const res = await fetch(healthUrl);
+    if (!res.ok) {
+      console.log(`❌ Health check failed — HTTP ${res.status}. Is the API server running?`);
+      return;
+    }
+    console.log('✅ Backend reachable\n');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(`❌ Cannot reach backend at ${API_URL} — ${msg}`);
+    console.log('   Start the API with:  cd Desktop/Cafeapp/apps/api && npm run start:dev');
+    return;
+  }
+
   const overallStartTime = Date.now();
 
   // Test 1: Customer Authentication

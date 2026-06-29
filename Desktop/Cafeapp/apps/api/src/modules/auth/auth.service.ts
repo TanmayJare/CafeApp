@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from './mail.service';
@@ -13,9 +17,10 @@ export class AuthService {
 
   async sendOTP(email: string) {
     // Generate 6-digit OTP
-    const code = process.env.NODE_ENV === 'development' 
-      ? '123456' // Fixed OTP for development
-      : Math.floor(100000 + Math.random() * 900000).toString();
+    const code =
+      process.env.NODE_ENV === 'development'
+        ? '123456' // Fixed OTP for development
+        : Math.floor(100000 + Math.random() * 900000).toString();
 
     // Store OTP in database with 10-minute expiry
     const expiresAt = new Date();

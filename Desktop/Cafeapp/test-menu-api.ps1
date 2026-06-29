@@ -62,13 +62,13 @@ Write-Host "5. Testing POST /auth/verify-otp (Staff)" -ForegroundColor Yellow
 try {
     $body = @{
         email = "staff@cafe.test"
-        otp = "123456"
+        code = "123456"
     } | ConvertTo-Json
     
     $response = Invoke-WebRequest -Uri "$baseUrl/auth/verify-otp" -Method POST -Headers @{"Content-Type"="application/json"} -Body $body
     Write-Host "Status: $($response.StatusCode)" -ForegroundColor Green
     $authResponse = $response.Content | ConvertFrom-Json
-    $token = $authResponse.access_token
+    $token = $authResponse.accessToken
     Write-Host "Token received: $($token.Substring(0, 20))..." -ForegroundColor Green
     Write-Host $response.Content
 } catch {

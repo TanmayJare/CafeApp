@@ -3,7 +3,7 @@ import { OrderStatus, RejectReason } from '@cafeconnect/database';
 
 export class UpdateOrderStatusDto {
   @IsEnum(OrderStatus)
-  status: OrderStatus;
+  status!: OrderStatus;
 
   @IsEnum(RejectReason)
   @IsOptional()

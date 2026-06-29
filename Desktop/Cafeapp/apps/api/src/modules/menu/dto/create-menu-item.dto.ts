@@ -1,16 +1,24 @@
-import { IsString, IsNumber, IsOptional, IsBoolean, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+  IsArray,
+  ValidateNested,
+  IsEnum,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { OptionType } from '@cafeconnect/database';
 
 class MenuItemOptionDto {
-  @IsString()
-  type: OptionType;
+  @IsEnum(OptionType)
+  type!: OptionType;
 
   @IsString()
-  name: string;
+  name!: string;
 
   @IsNumber()
-  priceDelta: number;
+  priceDelta!: number;
 
   @IsOptional()
   @IsBoolean()
@@ -19,10 +27,10 @@ class MenuItemOptionDto {
 
 export class CreateMenuItemDto {
   @IsString()
-  categoryId: string;
+  categoryId!: string;
 
   @IsString()
-  name: string;
+  name!: string;
 
   @IsOptional()
   @IsString()
@@ -33,7 +41,7 @@ export class CreateMenuItemDto {
   imageUrl?: string;
 
   @IsNumber()
-  price: number;
+  price!: number;
 
   @IsOptional()
   @IsBoolean()

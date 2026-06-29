@@ -2,7 +2,7 @@ import { IsString, IsOptional, IsInt, IsBoolean } from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
-  name: string;
+  name!: string;
 
   @IsOptional()
   @IsString()

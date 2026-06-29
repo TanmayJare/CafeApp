@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './modules/prisma/prisma.module';
@@ -14,6 +15,8 @@ import { PaymentsModule } from './modules/payments/payments.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      // Look for .env file in monorepo root (../../ from apps/api/src)
+      envFilePath: join(__dirname, '../../../.env'),
     }),
     PrismaModule,
     AuthModule,

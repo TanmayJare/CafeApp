@@ -34,7 +34,8 @@ export class MailService {
   }
 
   async sendOTP(email: string, code: string) {
-    const from = this.configService.get('MAIL_FROM') || 'noreply@cafeconnect.com';
+    const from =
+      this.configService.get('MAIL_FROM') || 'noreply@cafeconnect.com';
 
     const info = await this.transporter.sendMail({
       from,

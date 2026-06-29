@@ -1,4 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddressService } from '../address/address.service';
 import { OrdersGateway } from './orders.gateway';
@@ -21,11 +28,11 @@ export class OrdersService {
   private async generateOrderNumber(): Promise<string> {
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-    
+
     // Count orders today
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
     const endOfDay = new Date(today.setHours(23, 59, 59, 999));
-    
+
     const count = await this.prisma.order.count({
       where: {
         createdAt: {
@@ -54,7 +61,7 @@ export class OrdersService {
           id: 'default',
           name: 'CafeConnect',
           address: 'Mumbai, India',
-          latitude: 19.0760,
+          latitude: 19.076,
           longitude: 72.8777,
           taxRate: 0.05,
           primaryDeliveryFee: 20,
@@ -72,7 +79,8 @@ export class OrdersService {
    * Create order from cart or direct items
    */
   async create(userId: string, createOrderDto: CreateOrderDto) {
-    const { addressId, paymentMethod, couponCode, notes, items } = createOrderDto;
+    const { addressId, paymentMethod, couponCode, notes, items } =
+      createOrderDto;
 
     // Validate address belongs to user
     const address = await this.addressService.findOne(addressId, userId);
@@ -97,7 +105,7 @@ export class OrdersService {
         config.latitude,
         config.longitude,
         address.latitude,
-        address.longitude
+        address.longitude,
       );
 
       const zone = this.addressService.determineZone(distance);
@@ -106,7 +114,10 @@ export class OrdersService {
       }
 
       zoneType = zone;
-      deliveryFee = zone === 'PRIMARY' ? config.primaryDeliveryFee : config.secondaryDeliveryFee;
+      deliveryFee =
+        zone === 'PRIMARY'
+          ? config.primaryDeliveryFee
+          : config.secondaryDeliveryFee;
     }
 
     // Validate and calculate order items
@@ -131,7 +142,9 @@ export class OrdersService {
       }
 
       if (!menuItem.isAvailable) {
-        throw new BadRequestException(`${menuItem.name} is currently unavailable`);
+        throw new BadRequestException(
+          `${menuItem.name} is currently unavailable`,
+        );
       }
 
       let itemPrice = menuItem.price;
@@ -140,9 +153,13 @@ export class OrdersService {
       // Validate and calculate options
       if (item.options && item.options.length > 0) {
         for (const opt of item.options) {
-          const validOption = menuItem.options.find(o => o.name === opt.optionName);
+          const validOption = menuItem.options.find(
+            (o) => o.name === opt.optionName,
+          );
           if (!validOption) {
-            throw new BadRequestException(`Invalid option ${opt.optionName} for ${menuItem.name}`);
+            throw new BadRequestException(
+              `Invalid option ${opt.optionName} for ${menuItem.name}`,
+            );
           }
           itemPrice += validOption.priceDelta;
           itemOptions.push({
@@ -185,7 +202,9 @@ export class OrdersService {
       }
 
       if (subtotal < coupon.minOrderValue) {
-        throw new BadRequestException(`Minimum order value of ₹${coupon.minOrderValue} required for this coupon`);
+        throw new BadRequestException(
+          `Minimum order value of ₹${coupon.minOrderValue} required for this coupon`,
+        );
       }
 
       if (coupon.discountType === 'PERCENTAGE') {
@@ -228,7 +247,7 @@ export class OrdersService {
         paymentMethod,
         notes,
         items: {
-          create: orderItems.map(item => ({
+          create: orderItems.map((item) => ({
             menuItemId: item.menuItemId,
             name: item.name,
             unitPrice: item.unitPrice,
@@ -378,7 +397,7 @@ export class OrdersService {
     id: string,
     userId: string,
     userRole: UserRole,
-    updateOrderStatusDto: UpdateOrderStatusDto
+    updateOrderStatusDto: UpdateOrderStatusDto,
   ) {
     const order = await this.prisma.order.findUnique({
       where: { id },
@@ -447,33 +466,54 @@ export class OrdersService {
   /**
    * Validate status transitions
    */
-  private validateStatusTransition(currentStatus: OrderStatus, newStatus: OrderStatus, userRole: UserRole) {
+  private validateStatusTransition(
+    currentStatus: OrderStatus,
+    newStatus: OrderStatus,
+    userRole: UserRole,
+  ) {
     const validTransitions: Record<OrderStatus, OrderStatus[]> = {
       [OrderStatus.PLACED]: [OrderStatus.ACCEPTED, OrderStatus.CANCELLED],
       [OrderStatus.ACCEPTED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
       [OrderStatus.PREPARING]: [OrderStatus.READY, OrderStatus.CANCELLED],
       [OrderStatus.READY]: [OrderStatus.ASSIGNED, OrderStatus.CANCELLED],
-      [OrderStatus.ASSIGNED]: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED],
-      [OrderStatus.OUT_FOR_DELIVERY]: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+      [OrderStatus.ASSIGNED]: [
+        OrderStatus.OUT_FOR_DELIVERY,
+        OrderStatus.CANCELLED,
+      ],
+      [OrderStatus.OUT_FOR_DELIVERY]: [
+        OrderStatus.DELIVERED,
+        OrderStatus.CANCELLED,
+      ],
       [OrderStatus.DELIVERED]: [],
       [OrderStatus.CANCELLED]: [],
     };
 
     if (!validTransitions[currentStatus].includes(newStatus)) {
       throw new BadRequestException(
-        `Cannot transition from ${currentStatus} to ${newStatus}`
+        `Cannot transition from ${currentStatus} to ${newStatus}`,
       );
     }
 
     // Only staff can accept/prepare orders
-    if ([OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.ASSIGNED].includes(newStatus as any)) {
+    if (
+      [
+        OrderStatus.ACCEPTED,
+        OrderStatus.PREPARING,
+        OrderStatus.READY,
+        OrderStatus.ASSIGNED,
+      ].includes(newStatus as any)
+    ) {
       if (userRole !== UserRole.STAFF && userRole !== UserRole.SUPER_ADMIN) {
         throw new ForbiddenException('Only staff can perform this action');
       }
     }
 
     // Only riders can mark as out for delivery or delivered
-    if ([OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(newStatus as any)) {
+    if (
+      [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(
+        newStatus as any,
+      )
+    ) {
       if (userRole !== UserRole.RIDER && userRole !== UserRole.SUPER_ADMIN) {
         throw new ForbiddenException('Only riders can perform this action');
       }

@@ -2,16 +2,16 @@ import { IsString } from 'class-validator';
 
 export class VerifyPaymentDto {
   @IsString()
-  razorpayOrderId: string;
+  razorpayOrderId!: string;
 
   @IsString()
-  razorpayPaymentId: string;
+  razorpayPaymentId!: string;
 
   @IsString()
-  razorpaySignature: string;
+  razorpaySignature!: string;
 
   @IsString()
-  orderId: string;
+  orderId!: string;
 }
 
 // Made with Bob

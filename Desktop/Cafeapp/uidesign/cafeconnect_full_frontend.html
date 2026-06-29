@@ -1,0 +1,807 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --esp:#1C0F08;--esp2:#3A1F10;
+  --mat:#3D6B4A;--mat-lt:#EAF2EC;--mat-dk:#2A5034;
+  --cream:#F5EFE6;--surf:#FAFAF8;
+  --ink:#1A1A18;--ink2:#5C5C58;--ink3:#9C9C96;
+  --bd:rgba(0,0,0,0.08);--bd2:rgba(0,0,0,0.14);
+  --white:#fff;
+  --amb:#FAEEDA;--ambT:#633806;
+  --grn:#EAF3DE;--grnT:#27500A;
+  --red:#FCEBEB;--redT:#791F1F;
+  --blu:#E6F1FB;--bluT:#0C447C;
+}
+body{font-family:'Inter',sans-serif;font-size:13px;color:var(--ink);background:transparent;line-height:1.4}
+
+.surface-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.surface-tab{padding:8px 18px;border-radius:20px;border:0.5px solid var(--bd2);background:var(--color-background-secondary);color:var(--ink2);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.surface-tab.active{background:var(--esp);color:#fff;border-color:var(--esp)}
+
+.surface{display:none}
+.surface.visible{display:block}
+
+.screen-nav{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.snav-btn{padding:6px 14px;border-radius:16px;border:0.5px solid var(--bd);background:var(--color-background-primary);color:var(--ink2);font-size:11px;font-weight:500;cursor:pointer}
+.snav-btn.on{background:var(--esp);color:#fff;border-color:var(--esp)}
+
+.screen{display:none}
+.screen.show{display:block}
+
+/* ── SHARED COMPONENTS ── */
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;letter-spacing:-.01em}
+.mono{font-family:'DM Mono',monospace}
+.pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500}
+.pill-amb{background:var(--amb);color:var(--ambT)}
+.pill-grn{background:var(--grn);color:var(--grnT)}
+.pill-red{background:var(--red);color:var(--redT)}
+.pill-blu{background:var(--blu);color:var(--bluT)}
+.pill-esp{background:var(--esp);color:#fff}
+
+/* ── STAFF LAYOUT ── */
+.staff-frame{background:var(--surf);border-radius:12px;border:0.5px solid var(--bd2);overflow:hidden;min-height:680px}
+.staff-topbar{height:50px;background:var(--white);border-bottom:0.5px solid var(--bd);display:flex;align-items:center;padding:0 16px;gap:12px}
+.staff-brand{display:flex;align-items:center;gap:8px}
+.brand-badge{width:26px;height:26px;border-radius:7px;background:var(--esp);display:flex;align-items:center;justify-content:center}
+.brand-badge i{font-size:13px;color:#fff}
+.brand-name{font-family:'DM Serif Display',serif;font-size:16px;color:var(--esp)}
+.brand-role{font-size:11px;color:var(--ink3)}
+.topbar-sep{flex:1}
+.topbar-pg{font-family:'DM Serif Display',serif;font-size:16px;color:var(--ink)}
+.topbar-sub{font-size:11px;color:var(--ink3);margin-left:4px}
+.tb-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;border:0.5px solid var(--bd);background:transparent;color:var(--ink2);font-size:12px;cursor:pointer}
+.tb-btn i{font-size:15px}
+.tb-btn.primary{background:var(--esp);color:#fff;border-color:var(--esp)}
+
+.staff-body{display:flex;min-height:630px}
+.sidebar{width:192px;flex-shrink:0;background:var(--white);border-right:0.5px solid var(--bd);display:flex;flex-direction:column;padding:12px 0}
+.sg-label{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);padding:12px 14px 5px}
+.sg-label:first-child{padding-top:0}
+.nav-row{display:flex;align-items:center;gap:9px;padding:8px 14px;font-size:12.5px;font-weight:500;color:var(--ink2);cursor:pointer;position:relative}
+.nav-row i{font-size:16px;flex-shrink:0}
+.nav-row.active{color:var(--esp);background:var(--cream)}
+.nav-row.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2.5px;background:var(--esp);border-radius:0 2px 2px 0}
+.nav-badge{margin-left:auto;min-width:18px;height:16px;border-radius:8px;padding:0 4px;font-size:9px;font-weight:500;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace}
+.sidebar-footer{margin-top:auto;padding:10px 14px;border-top:0.5px solid var(--bd)}
+.staff-chip{display:flex;align-items:center;gap:8px}
+.staff-av{width:26px;height:26px;border-radius:50%;background:var(--cream);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--esp);flex-shrink:0}
+.staff-av-name{font-size:11.5px;font-weight:500;color:var(--ink)}
+.staff-av-role{font-size:10px;color:var(--mat)}
+
+.main-area{flex:1;min-width:0;overflow:hidden}
+.main-header{padding:14px 16px;background:var(--white);border-bottom:0.5px solid var(--bd);display:flex;align-items:center;justify-content:space-between}
+.main-title h2{font-size:18px;color:var(--ink);margin-bottom:2px}
+.main-title p{font-size:11px;color:var(--ink3)}
+.main-content{padding:14px}
+
+/* Stat cards */
+.stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.stat-card{background:var(--white);border:0.5px solid var(--bd);border-radius:9px;padding:12px 14px}
+.stat-lbl{font-size:10px;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.stat-val{font-family:'DM Mono',monospace;font-size:21px;font-weight:500;color:var(--ink);margin-bottom:4px}
+.stat-delta{font-size:11px;font-weight:500}
+.delta-up{color:var(--mat)}
+.delta-warn{color:#9B4B00}
+
+/* Tab strip */
+.tab-strip{display:flex;gap:3px;background:var(--surf);border-radius:9px;padding:3px;margin-bottom:12px}
+.ts-tab{flex:1;padding:6px 4px;border-radius:7px;font-size:11px;font-weight:500;text-align:center;color:var(--ink2);cursor:pointer}
+.ts-tab.on{background:var(--white);color:var(--ink);border:0.5px solid var(--bd)}
+.ts-count{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:8px;font-family:'DM Mono',monospace;font-size:9px;margin-left:4px;vertical-align:middle}
+
+/* Order cards */
+.order-card{background:var(--white);border:0.5px solid var(--bd);border-radius:9px;margin-bottom:8px;overflow:hidden}
+.oc-head{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--surf);border-bottom:0.5px solid var(--bd)}
+.oc-num{font-family:'DM Mono',monospace;font-size:11.5px;font-weight:500;color:var(--ink)}
+.oc-time{margin-left:auto;font-size:10.5px;color:var(--ink3)}
+.oc-body{padding:10px 12px;display:flex;align-items:center;gap:10px}
+.oc-items{flex:1;min-width:0}
+.oc-item-line{font-size:12px;color:var(--ink2);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-item-line b{color:var(--ink);font-weight:500}
+.oc-addr{font-size:10.5px;color:var(--ink3);margin-top:5px;display:flex;align-items:center;gap:4px}
+.oc-addr i{font-size:12px}
+.oc-total{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--ink);flex-shrink:0}
+.oc-foot{display:flex;gap:6px;padding:9px 12px;background:var(--surf);border-top:0.5px solid var(--bd)}
+.act-btn{flex:1;height:30px;border-radius:7px;font-size:11.5px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;border:0.5px solid var(--bd)}
+.act-btn i{font-size:13px}
+.act-btn.primary{background:var(--esp);border-color:var(--esp);color:#fff}
+.act-btn.danger{background:var(--red);border-color:transparent;color:var(--redT)}
+.act-btn.success{background:var(--grn);border-color:transparent;color:var(--grnT)}
+.act-btn.ghost{background:var(--white);color:var(--ink2)}
+
+/* Order detail split */
+.detail-split{display:flex;gap:12px;min-height:560px}
+.detail-left{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
+.detail-right{width:210px;flex-shrink:0;background:var(--white);border:0.5px solid var(--bd);border-radius:9px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.dcard{background:var(--white);border:0.5px solid var(--bd);border-radius:9px;overflow:hidden}
+.dcard-title{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3);padding:10px 14px;border-bottom:0.5px solid var(--bd);background:var(--surf)}
+.dcard-body{padding:12px 14px}
+.item-row-detail{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--bd)}
+.item-row-detail:last-child{border-bottom:none}
+.qty-box{width:22px;height:22px;border-radius:5px;background:var(--surf);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;flex-shrink:0}
+.item-detail-name{font-size:12.5px;font-weight:500;flex:1}
+.item-detail-opt{font-size:11px;color:var(--ink3)}
+.item-detail-price{font-family:'DM Mono',monospace;font-size:12.5px;font-weight:500;flex-shrink:0}
+.bill-row{display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:var(--ink2);border-bottom:0.5px solid var(--bd)}
+.bill-row:last-child{border-bottom:none;font-weight:500;color:var(--ink);padding-top:8px}
+.bill-row .mono{font-family:'DM Mono',monospace}
+.side-lbl{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
+.tl-row{display:flex;gap:10px;margin-bottom:0}
+.tl-col{display:flex;flex-direction:column;align-items:center;width:18px;flex-shrink:0}
+.tl-dot{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;flex-shrink:0}
+.tl-dot.done{background:var(--mat);color:#fff}
+.tl-dot.now{background:var(--esp);color:#fff}
+.tl-dot.pend{border:1.5px solid var(--bd2);background:transparent}
+.tl-line{width:1.5px;flex:1;min-height:16px;background:var(--bd)}
+.tl-line.done{background:var(--mat)}
+.tl-content{padding-bottom:12px;flex:1}
+.tl-label{font-size:11.5px;font-weight:500;color:var(--ink);margin-bottom:1px}
+.tl-label.pend{color:var(--ink3);font-weight:400}
+.tl-time{font-family:'DM Mono',monospace;font-size:10px;color:var(--ink3)}
+.action-stack{display:flex;flex-direction:column;gap:7px;margin-top:auto}
+.full-btn{width:100%;padding:9px;border-radius:8px;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;border:0.5px solid var(--bd)}
+.full-btn i{font-size:15px}
+.full-btn.primary{background:var(--esp);border-color:var(--esp);color:#fff}
+.full-btn.ghost{background:transparent;color:var(--ink2)}
+.full-btn.red{background:var(--red);border-color:transparent;color:var(--redT)}
+
+/* Menu table */
+.menu-toolbar{display:flex;gap:8px;margin-bottom:10px;align-items:center}
+.search-box{flex:1;height:32px;border-radius:7px;border:0.5px solid var(--bd);background:var(--white);padding:0 10px;display:flex;align-items:center;gap:8px;color:var(--ink3);font-size:12px}
+.search-box i{font-size:14px}
+.mtable{background:var(--white);border:0.5px solid var(--bd);border-radius:9px;overflow:hidden}
+.mthead{display:grid;grid-template-columns:1.8fr 1fr 80px 68px 44px;padding:8px 12px;background:var(--surf);border-bottom:0.5px solid var(--bd)}
+.mthead span{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3)}
+.mrow{display:grid;grid-template-columns:1.8fr 1fr 80px 68px 44px;padding:10px 12px;border-bottom:0.5px solid var(--bd);align-items:center}
+.mrow:last-child{border-bottom:none}
+.mrow-name{display:flex;align-items:center;gap:8px}
+.veg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.mname{font-size:12.5px;font-weight:500}
+.msub{font-size:10.5px;color:var(--ink3)}
+.toggle{width:32px;height:18px;border-radius:9px;display:flex;align-items:center;padding:1px;cursor:pointer}
+.toggle.on{background:var(--mat);justify-content:flex-end}
+.toggle.off{background:var(--bd2);justify-content:flex-start}
+.toggle-thumb{width:16px;height:16px;border-radius:50%;background:var(--white)}
+.edit-btn{width:26px;height:26px;border-radius:6px;border:0.5px solid var(--bd);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.edit-btn i{font-size:13px;color:var(--ink3)}
+
+/* ── CUSTOMER WEB ── */
+.web-frame{background:var(--surf);border-radius:12px;border:0.5px solid var(--bd2);overflow:hidden;min-height:680px}
+.web-nav{height:56px;background:var(--white);border-bottom:0.5px solid var(--bd);display:flex;align-items:center;padding:0 24px;gap:16px}
+.web-logo{font-family:'DM Serif Display',serif;font-size:18px;color:var(--esp);flex-shrink:0}
+.web-nav-links{display:flex;gap:4px;flex:1}
+.web-nav-link{padding:6px 12px;border-radius:7px;font-size:12.5px;font-weight:500;color:var(--ink2);cursor:pointer}
+.web-nav-link.active{background:var(--cream);color:var(--esp)}
+.web-nav-right{display:flex;gap:8px;align-items:center;margin-left:auto}
+.web-cart-btn{display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:8px;background:var(--esp);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer}
+.web-cart-btn i{font-size:15px}
+.web-cart-count{background:rgba(255,255,255,.2);border-radius:5px;padding:1px 6px;font-family:'DM Mono',monospace;font-size:11px}
+.icon-btn{width:34px;height:34px;border-radius:8px;border:0.5px solid var(--bd);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.icon-btn i{font-size:16px;color:var(--ink2)}
+.web-hero{background:var(--esp);padding:40px 24px;display:flex;gap:24px;align-items:center;justify-content:space-between}
+.hero-left{flex:1}
+.hero-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border-radius:20px;padding:4px 12px;font-size:11px;color:rgba(255,255,255,.7);margin-bottom:12px}
+.hero-dot{width:7px;height:7px;border-radius:50%;background:#6DBF7E;flex-shrink:0}
+.hero-h1{font-family:'DM Serif Display',serif;font-size:32px;color:#fff;line-height:1.15;margin-bottom:8px}
+.hero-sub{font-size:13px;color:rgba(255,255,255,.6);margin-bottom:20px}
+.hero-cta{display:inline-flex;align-items:center;gap:8px;background:#fff;color:var(--esp);padding:10px 20px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer}
+.hero-cta i{font-size:15px}
+.hero-right{display:flex;flex-direction:column;gap:10px;width:200px}
+.hero-stat{background:rgba(255,255,255,.1);border-radius:10px;padding:12px 14px}
+.hero-stat-val{font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:#fff;margin-bottom:2px}
+.hero-stat-lbl{font-size:11px;color:rgba(255,255,255,.6)}
+
+.web-section{padding:20px 24px}
+.section-hd{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+.section-hd h2{font-size:18px;color:var(--ink)}
+.section-hd a{font-size:12px;color:var(--mat);font-weight:500;cursor:pointer}
+
+.cat-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.cat-chip{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:500;border:0.5px solid var(--bd);background:var(--white);color:var(--ink2);cursor:pointer}
+.cat-chip.active{background:var(--esp);color:#fff;border-color:var(--esp)}
+
+.item-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.item-card{background:var(--white);border:0.5px solid var(--bd);border-radius:11px;overflow:hidden;cursor:pointer}
+.item-card-img{height:100px;display:flex;align-items:center;justify-content:center;font-size:40px}
+.item-card-body{padding:10px 12px}
+.ic-name{font-size:13px;font-weight:500;color:var(--ink);margin-bottom:3px}
+.ic-desc{font-size:11px;color:var(--ink3);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ic-foot{display:flex;align-items:center;justify-content:space-between}
+.ic-price{font-family:'DM Mono',monospace;font-size:13.5px;font-weight:500;color:var(--ink)}
+.ic-add{width:28px;height:28px;border-radius:7px;background:var(--esp);display:flex;align-items:center;justify-content:center}
+.ic-add i{font-size:15px;color:#fff}
+
+.banner-row{display:flex;gap:10px;margin-bottom:20px}
+.banner-card{flex:1;border-radius:11px;padding:16px;position:relative;overflow:hidden;min-height:80px;display:flex;flex-direction:column;justify-content:flex-end}
+.banner-a{background:var(--esp)}
+.banner-b{background:var(--mat)}
+.banner-c{background:#1D3461}
+.banner-off{position:absolute;top:10px;right:12px;font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:rgba(255,255,255,.2)}
+.banner-eye{font-size:10px;color:rgba(255,255,255,.6);font-weight:500;margin-bottom:3px}
+.banner-txt{font-family:'DM Serif Display',serif;font-size:14px;color:#fff;line-height:1.2}
+
+.web-product-layout{display:flex;gap:24px;padding:20px 24px;min-height:500px}
+.prod-img-col{width:260px;flex-shrink:0}
+.prod-img-box{background:var(--cream);border-radius:14px;height:220px;display:flex;align-items:center;justify-content:center;font-size:72px;margin-bottom:10px}
+.prod-info-col{flex:1;min-width:0}
+.prod-name{font-family:'DM Serif Display',serif;font-size:26px;color:var(--ink);margin-bottom:6px;line-height:1.2}
+.prod-price{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--esp);margin-bottom:10px}
+.prod-desc{font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:18px}
+.opt-lbl{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:7px}
+.opt-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.opt-chip{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:500;border:0.5px solid var(--bd);background:var(--white);color:var(--ink2);cursor:pointer}
+.opt-chip.sel{border-color:var(--esp);background:var(--esp);color:#fff}
+.opt-chip.sel-mat{border-color:var(--mat);background:var(--mat-lt);color:var(--mat-dk)}
+.qty-row{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.qty-lbl{font-size:13px;font-weight:500;flex:1}
+.qty-ctrl{display:flex;align-items:center;gap:10px}
+.qty-b{width:30px;height:30px;border-radius:7px;border:0.5px solid var(--bd);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.qty-b i{font-size:15px;color:var(--ink)}
+.qty-n{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;min-width:18px;text-align:center}
+.add-cart-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--esp);color:#fff;padding:13px 24px;border-radius:10px;font-size:14px;font-weight:500;width:100%;cursor:pointer}
+.add-cart-btn i{font-size:16px}
+
+.web-cart-layout{display:flex;gap:20px;padding:20px 24px;min-height:500px}
+.cart-left{flex:1;min-width:0}
+.cart-right{width:240px;flex-shrink:0}
+.cart-heading{font-family:'DM Serif Display',serif;font-size:20px;color:var(--ink);margin-bottom:14px}
+.cart-item{display:flex;gap:12px;align-items:center;padding:12px;background:var(--white);border:0.5px solid var(--bd);border-radius:9px;margin-bottom:8px}
+.ci-img{width:52px;height:52px;border-radius:8px;background:var(--cream);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.ci-info{flex:1;min-width:0}
+.ci-name{font-size:13px;font-weight:500;margin-bottom:2px}
+.ci-opt{font-size:11px;color:var(--ink3);margin-bottom:6px}
+.ci-stepper{display:flex;align-items:center;gap:8px}
+.ci-btn{width:22px;height:22px;border-radius:5px;border:0.5px solid var(--bd);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.ci-btn i{font-size:12px}
+.ci-qty{font-family:'DM Mono',monospace;font-size:12px;font-weight:500}
+.ci-price{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;flex-shrink:0}
+.bill-box{background:var(--white);border:0.5px solid var(--bd);border-radius:9px;padding:14px;margin-bottom:10px}
+.bill-title{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;padding-bottom:8px;border-bottom:0.5px solid var(--bd)}
+.bill-line{display:flex;justify-content:space-between;margin-bottom:7px;font-size:12px;color:var(--ink2)}
+.bill-line.total{font-weight:500;color:var(--ink);margin-top:10px;padding-top:8px;border-top:0.5px solid var(--bd)}
+.bill-line .mono{font-family:'DM Mono',monospace}
+.coupon-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--white);border:0.5px dashed var(--mat);border-radius:9px;margin-bottom:10px;cursor:pointer}
+.coupon-bar i{font-size:16px;color:var(--mat)}
+.coupon-bar span{font-size:12.5px;font-weight:500;color:var(--mat)}
+.coupon-bar .arr{margin-left:auto;color:var(--mat)}
+.place-btn{width:100%;padding:13px;border-radius:10px;background:var(--esp);color:#fff;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.place-btn .sub{font-size:11px;opacity:.65;margin-bottom:2px}
+
+.web-tracking-layout{padding:20px 24px}
+.tracking-header{background:var(--white);border:0.5px solid var(--bd);border-radius:11px;padding:18px;margin-bottom:14px;display:flex;gap:24px;align-items:flex-start}
+.tr-status-block{flex:1}
+.tr-order-num{font-size:11px;font-weight:500;color:var(--ink3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px}
+.tr-status-name{font-family:'DM Serif Display',serif;font-size:22px;color:var(--ink);margin-bottom:4px}
+.tr-eta{font-size:13px;color:var(--ink2)}
+.tr-eta span{font-family:'DM Mono',monospace;font-weight:500;color:var(--mat)}
+.tracking-grid{display:grid;grid-template-columns:1fr 260px;gap:14px}
+.stepper-card{background:var(--white);border:0.5px solid var(--bd);border-radius:11px;padding:16px}
+.step-row{display:flex;gap:12px;align-items:flex-start}
+.step-icon-col{display:flex;flex-direction:column;align-items:center;width:28px;flex-shrink:0}
+.step-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-dot.done{background:var(--mat)}
+.step-dot.now{background:var(--esp)}
+.step-dot.pend{border:1.5px solid var(--bd2);background:var(--white)}
+.step-dot i{font-size:13px;color:#fff}
+.step-dot.pend i{color:var(--ink3)}
+.step-vline{width:1.5px;flex:1;min-height:20px;background:var(--bd);margin:3px 0}
+.step-vline.done{background:var(--mat)}
+.step-body{padding-bottom:18px;flex:1}
+.step-label{font-size:13px;font-weight:500;color:var(--ink);margin-bottom:2px}
+.step-label.pend{color:var(--ink3);font-weight:400}
+.step-time{font-family:'DM Mono',monospace;font-size:11px;color:var(--ink3)}
+.step-time.now{color:var(--esp);font-weight:500}
+.order-side-card{background:var(--white);border:0.5px solid var(--bd);border-radius:11px;padding:14px;margin-bottom:10px}
+.osc-lbl{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;padding-bottom:8px;border-bottom:0.5px solid var(--bd)}
+.osc-line{display:flex;justify-content:space-between;font-size:12px;color:var(--ink2);margin-bottom:5px}
+.osc-line .mono{font-family:'DM Mono',monospace}
+.osc-total{display:flex;justify-content:space-between;font-size:13px;font-weight:500;color:var(--ink);margin-top:8px;padding-top:8px;border-top:0.5px solid var(--bd)}
+.osc-total .mono{font-family:'DM Mono',monospace}
+.addr-block{font-size:12px;color:var(--ink2);line-height:1.7}
+.addr-block strong{font-weight:500;color:var(--ink);display:block;margin-bottom:2px}
+</style>
+
+<h2 class="sr-only">CaféConnect full frontend design — Staff panel and Customer web</h2>
+
+<div style="padding:4px 0 14px">
+  <div class="surface-tabs">
+    <button class="surface-tab active" onclick="switchSurface('staff')"><i class="ti ti-layout-dashboard" aria-hidden="true" style="font-size:14px;margin-right:6px;vertical-align:-2px"></i>Staff panel</button>
+    <button class="surface-tab" onclick="switchSurface('web')"><i class="ti ti-world" aria-hidden="true" style="font-size:14px;margin-right:6px;vertical-align:-2px"></i>Customer web</button>
+  </div>
+
+  <div class="surface visible" id="surf-staff">
+    <div class="screen-nav">
+      <button class="snav-btn on" onclick="switchScreen('staff','s-dashboard',this)">Orders dashboard</button>
+      <button class="snav-btn" onclick="switchScreen('staff','s-order-detail',this)">Order detail</button>
+      <button class="snav-btn" onclick="switchScreen('staff','s-menu',this)">Menu management</button>
+    </div>
+
+    <div class="screen show" id="s-dashboard">
+      <div class="staff-frame">
+        <div class="staff-topbar">
+          <div class="staff-brand">
+            <div class="brand-badge"><i class="ti ti-coffee" aria-hidden="true"></i></div>
+            <span class="brand-name">CaféConnect</span>
+            <span class="brand-role">· Staff</span>
+          </div>
+          <div class="topbar-sep"></div>
+          <span class="topbar-pg">Dashboard</span>
+          <span class="topbar-sub">Tuesday, 23 June 2026</span>
+          <div class="topbar-sep"></div>
+          <button class="tb-btn"><i class="ti ti-refresh" aria-hidden="true"></i>Refresh</button>
+        </div>
+        <div class="staff-body">
+          <div class="sidebar">
+            <span class="sg-label">Operations</span>
+            <div class="nav-row active"><i class="ti ti-layout-dashboard" aria-hidden="true"></i>Dashboard<span class="nav-badge" style="background:var(--esp);color:#fff">7</span></div>
+            <div class="nav-row"><i class="ti ti-receipt-2" aria-hidden="true"></i>Orders<span class="nav-badge" style="background:var(--amb);color:var(--ambT)">3</span></div>
+            <span class="sg-label">Catalogue</span>
+            <div class="nav-row"><i class="ti ti-category" aria-hidden="true"></i>Menu</div>
+            <div class="nav-row"><i class="ti ti-tag" aria-hidden="true"></i>Specials</div>
+            <div class="nav-row"><i class="ti ti-badge-ad" aria-hidden="true"></i>Banners</div>
+            <div class="sidebar-footer">
+              <div class="staff-chip">
+                <div class="staff-av">RK</div>
+                <div><div class="staff-av-name">Rahul K.</div><div class="staff-av-role">Staff · Online</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="main-area">
+            <div class="main-header">
+              <div class="main-title"><h2>Live orders</h2><p>3 orders waiting for action</p></div>
+            </div>
+            <div class="main-content">
+              <div class="stat-grid">
+                <div class="stat-card"><div class="stat-lbl">Today's orders</div><div class="stat-val">24</div><div class="stat-delta delta-up">↑ 4 vs yesterday</div></div>
+                <div class="stat-card"><div class="stat-lbl">Revenue</div><div class="stat-val mono">₹12,480</div><div class="stat-delta delta-up">↑ ₹1,240</div></div>
+                <div class="stat-card"><div class="stat-lbl">Pending now</div><div class="stat-val">7</div><div class="stat-delta delta-warn">3 waiting &gt;5 min</div></div>
+                <div class="stat-card"><div class="stat-lbl">Avg prep time</div><div class="stat-val">18m</div><div class="stat-delta delta-up">↓ 2 min vs avg</div></div>
+              </div>
+              <div class="tab-strip">
+                <div class="ts-tab on">Placed<span class="ts-count" style="background:var(--amb);color:var(--ambT)">3</span></div>
+                <div class="ts-tab">Accepted<span class="ts-count" style="background:var(--blu);color:var(--bluT)">2</span></div>
+                <div class="ts-tab">Preparing<span class="ts-count" style="background:var(--blu);color:var(--bluT)">2</span></div>
+                <div class="ts-tab">Ready<span class="ts-count" style="background:var(--grn);color:var(--grnT)">1</span></div>
+                <div class="ts-tab">Delivered<span class="ts-count" style="background:var(--color-background-secondary);color:var(--ink3)">16</span></div>
+              </div>
+              <div class="order-card">
+                <div class="oc-head"><span class="oc-num">CC-20260623-022</span><span class="pill pill-amb">Placed</span><span class="oc-time"><i class="ti ti-clock" aria-hidden="true" style="font-size:11px;vertical-align:-1px;margin-right:3px"></i>2 min ago</span></div>
+                <div class="oc-body">
+                  <div class="oc-items">
+                    <div class="oc-item-line"><b>2×</b> Hazelnut Latte (L) · Extra shot</div>
+                    <div class="oc-item-line"><b>1×</b> Grilled Veg Melt</div>
+                    <div class="oc-addr"><i class="ti ti-map-pin" aria-hidden="true"></i>Tower B · Flat 903 · COD</div>
+                  </div>
+                  <span class="oc-total mono">₹820</span>
+                </div>
+                <div class="oc-foot">
+                  <div class="act-btn danger"><i class="ti ti-x" aria-hidden="true"></i>Reject</div>
+                  <div class="act-btn primary"><i class="ti ti-check" aria-hidden="true"></i>Accept order</div>
+                </div>
+              </div>
+              <div class="order-card">
+                <div class="oc-head"><span class="oc-num">CC-20260623-021</span><span class="pill pill-amb">Placed</span><span class="oc-time"><i class="ti ti-clock" aria-hidden="true" style="font-size:11px;vertical-align:-1px;margin-right:3px"></i>5 min ago</span></div>
+                <div class="oc-body">
+                  <div class="oc-items">
+                    <div class="oc-item-line"><b>1×</b> Cold Brew Float</div>
+                    <div class="oc-item-line"><b>1×</b> Croissant · Plain</div>
+                    <div class="oc-addr"><i class="ti ti-map-pin" aria-hidden="true"></i>Tower A · Flat 402 · Razorpay</div>
+                  </div>
+                  <span class="oc-total mono">₹380</span>
+                </div>
+                <div class="oc-foot">
+                  <div class="act-btn danger"><i class="ti ti-x" aria-hidden="true"></i>Reject</div>
+                  <div class="act-btn primary"><i class="ti ti-check" aria-hidden="true"></i>Accept order</div>
+                </div>
+              </div>
+              <div class="order-card">
+                <div class="oc-head"><span class="oc-num">CC-20260623-020</span><span class="pill pill-amb">Placed</span><span class="oc-time"><i class="ti ti-clock" aria-hidden="true" style="font-size:11px;vertical-align:-1px;margin-right:3px"></i>7 min ago</span></div>
+                <div class="oc-body">
+                  <div class="oc-items">
+                    <div class="oc-item-line"><b>3×</b> Masala Chai</div>
+                    <div class="oc-item-line"><b>2×</b> Butter Toast</div>
+                    <div class="oc-addr"><i class="ti ti-map-pin" aria-hidden="true"></i>External · Kothrud · COD</div>
+                  </div>
+                  <span class="oc-total mono">₹295</span>
+                </div>
+                <div class="oc-foot">
+                  <div class="act-btn danger"><i class="ti ti-x" aria-hidden="true"></i>Reject</div>
+                  <div class="act-btn primary"><i class="ti ti-check" aria-hidden="true"></i>Accept order</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen" id="s-order-detail">
+      <div class="staff-frame">
+        <div class="staff-topbar">
+          <div class="staff-brand"><div class="brand-badge"><i class="ti ti-coffee" aria-hidden="true"></i></div><span class="brand-name">CaféConnect</span><span class="brand-role">· Staff</span></div>
+          <div class="topbar-sep"></div>
+          <button class="tb-btn"><i class="ti ti-arrow-left" aria-hidden="true"></i>Back</button>
+          <span style="font-size:12px;color:var(--ink3)">Orders /</span>
+          <span style="font-size:12px;font-weight:500;color:var(--ink);font-family:'DM Mono',monospace">CC-20260623-022</span>
+          <div class="topbar-sep"></div>
+          <button class="tb-btn"><i class="ti ti-printer" aria-hidden="true"></i>Print KOT</button>
+        </div>
+        <div class="staff-body">
+          <div class="sidebar">
+            <span class="sg-label">Operations</span>
+            <div class="nav-row"><i class="ti ti-layout-dashboard" aria-hidden="true"></i>Dashboard<span class="nav-badge" style="background:var(--esp);color:#fff">7</span></div>
+            <div class="nav-row active"><i class="ti ti-receipt-2" aria-hidden="true"></i>Orders<span class="nav-badge" style="background:var(--amb);color:var(--ambT)">3</span></div>
+            <span class="sg-label">Catalogue</span>
+            <div class="nav-row"><i class="ti ti-category" aria-hidden="true"></i>Menu</div>
+            <div class="nav-row"><i class="ti ti-tag" aria-hidden="true"></i>Specials</div>
+            <div class="nav-row"><i class="ti ti-badge-ad" aria-hidden="true"></i>Banners</div>
+            <div class="sidebar-footer"><div class="staff-chip"><div class="staff-av">RK</div><div><div class="staff-av-name">Rahul K.</div><div class="staff-av-role">Staff · Online</div></div></div></div>
+          </div>
+          <div class="main-area">
+            <div class="main-header">
+              <div class="main-title"><h2>CC-20260623-022</h2><p>Placed at 10:02 AM · 8 minutes ago</p></div>
+              <span class="pill pill-blu" style="font-size:12px;padding:5px 12px">Preparing</span>
+            </div>
+            <div class="main-content">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+                <span class="pill" style="background:var(--surf);color:var(--ink2);border:0.5px solid var(--bd)"><i class="ti ti-map-pin" aria-hidden="true" style="font-size:12px;margin-right:4px;vertical-align:-1px"></i>Tower B · Flat 903</span>
+                <span class="pill" style="background:var(--surf);color:var(--ink2);border:0.5px solid var(--bd)"><i class="ti ti-user" aria-hidden="true" style="font-size:12px;margin-right:4px;vertical-align:-1px"></i>Priya Mehta</span>
+                <span class="pill" style="background:var(--mat-lt);color:var(--mat-dk)"><i class="ti ti-cash" aria-hidden="true" style="font-size:12px;margin-right:4px;vertical-align:-1px"></i>COD · ₹820</span>
+              </div>
+              <div class="detail-split">
+                <div class="detail-left">
+                  <div class="dcard">
+                    <div class="dcard-title">Items ordered</div>
+                    <div class="dcard-body">
+                      <div class="item-row-detail"><div class="qty-box">2</div><div style="flex:1"><div class="item-detail-name">Hazelnut Latte</div><div class="item-detail-opt">Large · Extra shot · Oat milk</div></div><div class="item-detail-price mono">₹580</div></div>
+                      <div class="item-row-detail"><div class="qty-box">1</div><div style="flex:1"><div class="item-detail-name">Grilled Veg Melt</div><div class="item-detail-opt">Standard · No pesto</div></div><div class="item-detail-price mono">₹180</div></div>
+                    </div>
+                  </div>
+                  <div class="dcard">
+                    <div class="dcard-title">Bill summary</div>
+                    <div class="dcard-body">
+                      <div class="bill-row"><span>Subtotal</span><span class="mono">₹760</span></div>
+                      <div class="bill-row"><span>Delivery fee</span><span class="mono" style="color:var(--mat)">Free</span></div>
+                      <div class="bill-row"><span>Platform fee</span><span class="mono">₹5</span></div>
+                      <div class="bill-row"><span>GST (5%)</span><span class="mono">₹38</span></div>
+                      <div class="bill-row"><span>Total</span><span class="mono">₹820</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="detail-right">
+                  <div>
+                    <div class="side-lbl">Delivering to</div>
+                    <div class="addr-block"><strong>Tower B, Floor 9, Flat 903</strong>Sunshine Society<br>Baner, Pune 411045</div>
+                  </div>
+                  <div style="border-top:0.5px solid var(--bd);padding-top:12px">
+                    <div class="side-lbl">Order progress</div>
+                    <div>
+                      <div class="tl-row"><div class="tl-col"><div class="tl-dot done"><i class="ti ti-check" aria-hidden="true"></i></div><div class="tl-line done"></div></div><div class="tl-content"><div class="tl-label">Placed</div><div class="tl-time">10:02 AM</div></div></div>
+                      <div class="tl-row"><div class="tl-col"><div class="tl-dot done"><i class="ti ti-check" aria-hidden="true"></i></div><div class="tl-line done"></div></div><div class="tl-content"><div class="tl-label">Accepted</div><div class="tl-time">10:03 AM</div></div></div>
+                      <div class="tl-row"><div class="tl-col"><div class="tl-dot now"><i class="ti ti-coffee" aria-hidden="true"></i></div><div class="tl-line"></div></div><div class="tl-content"><div class="tl-label">Preparing</div><div class="tl-time" style="color:var(--esp);font-weight:500">Now</div></div></div>
+                      <div class="tl-row"><div class="tl-col"><div class="tl-dot pend"></div><div class="tl-line"></div></div><div class="tl-content"><div class="tl-label pend">Ready</div><div class="tl-time">—</div></div></div>
+                      <div class="tl-row"><div class="tl-col"><div class="tl-dot pend"></div></div><div class="tl-content"><div class="tl-label pend">Delivered</div><div class="tl-time">—</div></div></div>
+                    </div>
+                  </div>
+                  <div class="action-stack">
+                    <div class="full-btn primary"><i class="ti ti-building-store" aria-hidden="true"></i>Mark as ready</div>
+                    <div class="full-btn ghost"><i class="ti ti-truck-delivery" aria-hidden="true"></i>Mark delivered</div>
+                    <div class="full-btn red"><i class="ti ti-x" aria-hidden="true"></i>Cancel order</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen" id="s-menu">
+      <div class="staff-frame">
+        <div class="staff-topbar">
+          <div class="staff-brand"><div class="brand-badge"><i class="ti ti-coffee" aria-hidden="true"></i></div><span class="brand-name">CaféConnect</span><span class="brand-role">· Staff</span></div>
+          <div class="topbar-sep"></div>
+          <span class="topbar-pg">Menu</span><span class="topbar-sub">18 items · 6 categories</span>
+          <div class="topbar-sep"></div>
+          <button class="tb-btn primary"><i class="ti ti-plus" aria-hidden="true"></i>Add item</button>
+        </div>
+        <div class="staff-body">
+          <div class="sidebar">
+            <span class="sg-label">Operations</span>
+            <div class="nav-row"><i class="ti ti-layout-dashboard" aria-hidden="true"></i>Dashboard<span class="nav-badge" style="background:var(--esp);color:#fff">7</span></div>
+            <div class="nav-row"><i class="ti ti-receipt-2" aria-hidden="true"></i>Orders<span class="nav-badge" style="background:var(--amb);color:var(--ambT)">3</span></div>
+            <span class="sg-label">Catalogue</span>
+            <div class="nav-row active"><i class="ti ti-category" aria-hidden="true"></i>Menu</div>
+            <div class="nav-row"><i class="ti ti-tag" aria-hidden="true"></i>Specials</div>
+            <div class="nav-row"><i class="ti ti-badge-ad" aria-hidden="true"></i>Banners</div>
+            <div class="sidebar-footer"><div class="staff-chip"><div class="staff-av">RK</div><div><div class="staff-av-name">Rahul K.</div><div class="staff-av-role">Staff · Online</div></div></div></div>
+          </div>
+          <div class="main-area">
+            <div class="main-content" style="padding-top:12px">
+              <div class="menu-toolbar">
+                <div class="search-box"><i class="ti ti-search" aria-hidden="true"></i>Search items…</div>
+                <button class="tb-btn"><i class="ti ti-filter" aria-hidden="true"></i>All categories</button>
+              </div>
+              <div class="mtable">
+                <div class="mthead"><span>Item</span><span>Category</span><span>Price</span><span>Available</span><span></span></div>
+                <div class="mrow"><div class="mrow-name"><div class="veg-dot" style="background:var(--mat)"></div><div><div class="mname">Hazelnut Latte</div><div class="msub">2 options</div></div></div><div style="font-size:12px;color:var(--ink2)">Coffee</div><div class="mono" style="font-size:12.5px;font-weight:500">₹220</div><div><div class="toggle on"><div class="toggle-thumb"></div></div></div><div><div class="edit-btn"><i class="ti ti-edit" aria-hidden="true"></i></div></div></div>
+                <div class="mrow"><div class="mrow-name"><div class="veg-dot" style="background:var(--mat)"></div><div><div class="mname">Cold Brew Float</div><div class="msub">1 option</div></div></div><div style="font-size:12px;color:var(--ink2)">Cold Drinks</div><div class="mono" style="font-size:12.5px;font-weight:500">₹260</div><div><div class="toggle on"><div class="toggle-thumb"></div></div></div><div><div class="edit-btn"><i class="ti ti-edit" aria-hidden="true"></i></div></div></div>
+                <div class="mrow" style="opacity:.6"><div class="mrow-name"><div class="veg-dot" style="background:var(--bd2)"></div><div><div class="mname">Espresso Tonic</div><div class="msub">—</div></div></div><div style="font-size:12px;color:var(--ink2)">Coffee</div><div class="mono" style="font-size:12.5px;font-weight:500">₹190</div><div><div class="toggle off"><div class="toggle-thumb"></div></div></div><div><div class="edit-btn"><i class="ti ti-edit" aria-hidden="true"></i></div></div></div>
+                <div class="mrow"><div class="mrow-name"><div class="veg-dot" style="background:var(--mat)"></div><div><div class="mname">Grilled Veg Melt</div><div class="msub">—</div></div></div><div style="font-size:12px;color:var(--ink2)">Sandwiches</div><div class="mono" style="font-size:12.5px;font-weight:500">₹180</div><div><div class="toggle on"><div class="toggle-thumb"></div></div></div><div><div class="edit-btn"><i class="ti ti-edit" aria-hidden="true"></i></div></div></div>
+                <div class="mrow"><div class="mrow-name"><div class="veg-dot" style="background:var(--mat)"></div><div><div class="mname">Masala Chai</div><div class="msub">1 option</div></div></div><div style="font-size:12px;color:var(--ink2)">Hot Drinks</div><div class="mono" style="font-size:12.5px;font-weight:500">₹80</div><div><div class="toggle on"><div class="toggle-thumb"></div></div></div><div><div class="edit-btn"><i class="ti ti-edit" aria-hidden="true"></i></div></div></div>
+                <div class="mrow" style="opacity:.6"><div class="mrow-name"><div class="veg-dot" style="background:var(--bd2)"></div><div><div class="mname">Banana Walnut Cake</div><div class="msub">—</div></div></div><div style="font-size:12px;color:var(--ink2)">Desserts</div><div class="mono" style="font-size:12.5px;font-weight:500">₹150</div><div><div class="toggle off"><div class="toggle-thumb"></div></div></div><div><div class="edit-btn"><i class="ti ti-edit" aria-hidden="true"></i></div></div></div>
+                <div class="mrow"><div class="mrow-name"><div class="veg-dot" style="background:var(--mat)"></div><div><div class="mname">Avocado Toast</div><div class="msub">2 options</div></div></div><div style="font-size:12px;color:var(--ink2)">Snacks</div><div class="mono" style="font-size:12.5px;font-weight:500">₹220</div><div><div class="toggle on"><div class="toggle-thumb"></div></div></div><div><div class="edit-btn"><i class="ti ti-edit" aria-hidden="true"></i></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="surface" id="surf-web">
+    <div class="screen-nav">
+      <button class="snav-btn on" onclick="switchScreen('web','w-home',this)">Home</button>
+      <button class="snav-btn" onclick="switchScreen('web','w-menu',this)">Menu</button>
+      <button class="snav-btn" onclick="switchScreen('web','w-product',this)">Product detail</button>
+      <button class="snav-btn" onclick="switchScreen('web','w-cart',this)">Cart</button>
+      <button class="snav-btn" onclick="switchScreen('web','w-tracking',this)">Order tracking</button>
+    </div>
+
+    <div class="screen show" id="w-home">
+      <div class="web-frame">
+        <div class="web-nav">
+          <span class="web-logo">CaféConnect</span>
+          <div class="web-nav-links">
+            <div class="web-nav-link active">Home</div>
+            <div class="web-nav-link">Menu</div>
+            <div class="web-nav-link">Orders</div>
+          </div>
+          <div class="web-nav-right">
+            <div class="icon-btn"><i class="ti ti-search" aria-hidden="true"></i></div>
+            <div class="web-cart-btn"><i class="ti ti-shopping-cart" aria-hidden="true"></i>Cart<span class="web-cart-count">3</span></div>
+          </div>
+        </div>
+        <div class="web-hero">
+          <div class="hero-left">
+            <div class="hero-tag"><span class="hero-dot"></span>Open · Closes 11 PM</div>
+            <h1 class="hero-h1">What are you<br>craving today?</h1>
+            <p class="hero-sub">Order from the café, delivered to your door in 20–35 min</p>
+            <div class="hero-cta"><i class="ti ti-category" aria-hidden="true"></i>Browse menu</div>
+          </div>
+          <div class="hero-right">
+            <div class="hero-stat"><div class="hero-stat-val">20–35</div><div class="hero-stat-lbl">Min delivery time</div></div>
+            <div class="hero-stat"><div class="hero-stat-val">Free</div><div class="hero-stat-lbl">Delivery in society</div></div>
+          </div>
+        </div>
+        <div class="web-section">
+          <div class="banner-row">
+            <div class="banner-card banner-a"><div class="banner-off">20%</div><div class="banner-eye">Today only</div><div class="banner-txt">Flat 20% on your first order</div></div>
+            <div class="banner-card banner-b"><div class="banner-off">₹0</div><div class="banner-eye">Society perk</div><div class="banner-txt">Free delivery inside the gates</div></div>
+            <div class="banner-card banner-c"><div class="banner-off">2×</div><div class="banner-eye">Specials</div><div class="banner-txt">Double shots, half the wait</div></div>
+          </div>
+          <div class="section-hd"><h2>Today's specials</h2><a>See all</a></div>
+          <div class="cat-row">
+            <div class="cat-chip active">All</div><div class="cat-chip">Coffee</div><div class="cat-chip">Cold Drinks</div><div class="cat-chip">Snacks</div><div class="cat-chip">Sandwiches</div>
+          </div>
+          <div class="item-grid">
+            <div class="item-card"><div class="item-card-img" style="background:#FFF3E0">☕</div><div class="item-card-body"><div class="ic-name">Hazelnut Latte</div><div class="ic-desc">Espresso · steamed milk · hazelnut</div><div class="ic-foot"><span class="ic-price">₹220</span><div class="ic-add"><i class="ti ti-plus" aria-hidden="true"></i></div></div></div></div>
+            <div class="item-card"><div class="item-card-img" style="background:#E8F5E9">🥪</div><div class="item-card-body"><div class="ic-name">Grilled Veg Melt</div><div class="ic-desc">Sourdough · cheese · peppers</div><div class="ic-foot"><span class="ic-price">₹180</span><div class="ic-add"><i class="ti ti-plus" aria-hidden="true"></i></div></div></div></div>
+            <div class="item-card"><div class="item-card-img" style="background:#E3F2FD">🧋</div><div class="item-card-body"><div class="ic-name">Cold Brew Float</div><div class="ic-desc">Cold brew · vanilla ice cream</div><div class="ic-foot"><span class="ic-price">₹260</span><div class="ic-add"><i class="ti ti-plus" aria-hidden="true"></i></div></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen" id="w-menu">
+      <div class="web-frame">
+        <div class="web-nav">
+          <span class="web-logo">CaféConnect</span>
+          <div class="web-nav-links"><div class="web-nav-link">Home</div><div class="web-nav-link active">Menu</div><div class="web-nav-link">Orders</div></div>
+          <div class="web-nav-right"><div class="icon-btn"><i class="ti ti-search" aria-hidden="true"></i></div><div class="web-cart-btn"><i class="ti ti-shopping-cart" aria-hidden="true"></i>Cart<span class="web-cart-count">3</span></div></div>
+        </div>
+        <div class="web-section">
+          <div class="section-hd" style="margin-bottom:10px"><h2>Full menu</h2></div>
+          <div class="cat-row" style="margin-bottom:16px">
+            <div class="cat-chip active">All</div><div class="cat-chip">Coffee</div><div class="cat-chip">Cold Drinks</div><div class="cat-chip">Snacks</div><div class="cat-chip">Sandwiches</div><div class="cat-chip">Desserts</div>
+          </div>
+          <div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px">Coffee</div>
+          <div class="item-grid" style="margin-bottom:20px">
+            <div class="item-card"><div class="item-card-img" style="background:#FFF3E0">☕</div><div class="item-card-body"><div class="ic-name">Hazelnut Latte</div><div class="ic-desc">Espresso · steamed milk · hazelnut</div><div class="ic-foot"><span class="ic-price">₹220</span><div class="ic-add"><i class="ti ti-plus" aria-hidden="true"></i></div></div></div></div>
+            <div class="item-card"><div class="item-card-img" style="background:#FFF8E1">☕</div><div class="item-card-body"><div class="ic-name">Flat White</div><div class="ic-desc">Double ristretto · whole milk</div><div class="ic-foot"><span class="ic-price">₹200</span><div class="ic-add"><i class="ti ti-plus" aria-hidden="true"></i></div></div></div></div>
+            <div class="item-card"><div class="item-card-img" style="background:#ECEFF1">☕</div><div class="item-card-body"><div class="ic-name">Cappuccino</div><div class="ic-desc">Espresso · steamed milk · foam</div><div class="ic-foot"><span class="ic-price">₹180</span><div class="ic-add"><i class="ti ti-plus" aria-hidden="true"></i></div></div></div></div>
+          </div>
+          <div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px">Cold Drinks</div>
+          <div class="item-grid">
+            <div class="item-card"><div class="item-card-img" style="background:#E3F2FD">🧋</div><div class="item-card-body"><div class="ic-name">Cold Brew Float</div><div class="ic-desc">Cold brew · vanilla ice cream · soda</div><div class="ic-foot"><span class="ic-price">₹260</span><div class="ic-add"><i class="ti ti-plus" aria-hidden="true"></i></div></div></div></div>
+            <div class="item-card"><div class="item-card-img" style="background:#E8F5E9">🥤</div><div class="item-card-body"><div class="ic-name">Matcha Lemonade</div><div class="ic-desc">Ceremonial matcha · fresh lemon</div><div class="ic-foot"><span class="ic-price">₹220</span><div class="ic-add"><i class="ti ti-plus" aria-hidden="true"></i></div></div></div></div>
+            <div class="item-card"><div class="item-card-img" style="background:#FCE4EC">🧃</div><div class="item-card-body"><div class="ic-name">Strawberry Cooler</div><div class="ic-desc">Fresh strawberries · mint · soda</div><div class="ic-foot"><span class="ic-price">₹180</span><div class="ic-add"><i class="ti ti-plus" aria-hidden="true"></i></div></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen" id="w-product">
+      <div class="web-frame">
+        <div class="web-nav">
+          <span class="web-logo">CaféConnect</span>
+          <div class="web-nav-links"><div class="web-nav-link">Home</div><div class="web-nav-link active">Menu</div><div class="web-nav-link">Orders</div></div>
+          <div class="web-nav-right"><div class="icon-btn"><i class="ti ti-search" aria-hidden="true"></i></div><div class="web-cart-btn"><i class="ti ti-shopping-cart" aria-hidden="true"></i>Cart<span class="web-cart-count">3</span></div></div>
+        </div>
+        <div style="padding:12px 24px 0;font-size:12px;color:var(--ink3)">Menu / Coffee / <span style="color:var(--ink)">Hazelnut Latte</span></div>
+        <div class="web-product-layout">
+          <div class="prod-img-col">
+            <div class="prod-img-box">☕</div>
+            <div style="display:flex;gap:8px">
+              <div style="width:56px;height:56px;border-radius:8px;background:#FFF3E0;display:flex;align-items:center;justify-content:center;font-size:22px;border:1.5px solid var(--esp)">☕</div>
+              <div style="width:56px;height:56px;border-radius:8px;background:var(--surf);display:flex;align-items:center;justify-content:center;font-size:22px">☕</div>
+              <div style="width:56px;height:56px;border-radius:8px;background:var(--surf);display:flex;align-items:center;justify-content:center;font-size:22px">🧊</div>
+            </div>
+          </div>
+          <div class="prod-info-col">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--mat)"></div>
+              <span style="font-size:11px;color:var(--ink3)">Vegetarian</span>
+            </div>
+            <h1 class="prod-name">Hazelnut Latte</h1>
+            <div class="prod-price">₹220</div>
+            <p class="prod-desc">A smooth shot of espresso blended with steamed whole milk and our house-made hazelnut syrup. Warm, nutty, and not too sweet. Available hot or iced.</p>
+            <div class="opt-lbl">Size</div>
+            <div class="opt-row">
+              <div class="opt-chip">Regular · ₹220</div>
+              <div class="opt-chip sel">Large · ₹260</div>
+            </div>
+            <div class="opt-lbl">Add-ons</div>
+            <div class="opt-row">
+              <div class="opt-chip sel-mat">Extra shot · ₹40</div>
+              <div class="opt-chip">Oat milk · ₹30</div>
+              <div class="opt-chip">Sugar-free · ₹0</div>
+            </div>
+            <div style="height:0.5px;background:var(--bd);margin:14px 0"></div>
+            <div class="qty-row">
+              <span class="qty-lbl">Quantity</span>
+              <div class="qty-ctrl">
+                <div class="qty-b"><i class="ti ti-minus" aria-hidden="true"></i></div>
+                <span class="qty-n">1</span>
+                <div class="qty-b"><i class="ti ti-plus" aria-hidden="true"></i></div>
+              </div>
+            </div>
+            <div class="add-cart-btn"><i class="ti ti-shopping-cart" aria-hidden="true"></i>Add to cart · ₹300</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen" id="w-cart">
+      <div class="web-frame">
+        <div class="web-nav">
+          <span class="web-logo">CaféConnect</span>
+          <div class="web-nav-links"><div class="web-nav-link">Home</div><div class="web-nav-link">Menu</div><div class="web-nav-link">Orders</div></div>
+          <div class="web-nav-right"><div class="icon-btn"><i class="ti ti-search" aria-hidden="true"></i></div><div class="web-cart-btn"><i class="ti ti-shopping-cart" aria-hidden="true"></i>Cart<span class="web-cart-count">3</span></div></div>
+        </div>
+        <div class="web-cart-layout">
+          <div class="cart-left">
+            <h2 class="cart-heading">Your cart</h2>
+            <div class="cart-item">
+              <div class="ci-img">☕</div>
+              <div class="ci-info">
+                <div class="ci-name">Hazelnut Latte</div>
+                <div class="ci-opt">Large · Extra shot · Oat milk</div>
+                <div class="ci-stepper"><div class="ci-btn"><i class="ti ti-minus" aria-hidden="true"></i></div><span class="ci-qty">1</span><div class="ci-btn"><i class="ti ti-plus" aria-hidden="true"></i></div></div>
+              </div>
+              <span class="ci-price mono">₹300</span>
+            </div>
+            <div class="cart-item">
+              <div class="ci-img">🥪</div>
+              <div class="ci-info">
+                <div class="ci-name">Grilled Veg Melt</div>
+                <div class="ci-opt">Standard</div>
+                <div class="ci-stepper"><div class="ci-btn"><i class="ti ti-minus" aria-hidden="true"></i></div><span class="ci-qty">2</span><div class="ci-btn"><i class="ti ti-plus" aria-hidden="true"></i></div></div>
+              </div>
+              <span class="ci-price mono">₹360</span>
+            </div>
+            <div class="cart-item">
+              <div class="ci-img">🧋</div>
+              <div class="ci-info">
+                <div class="ci-name">Cold Brew Float</div>
+                <div class="ci-opt">Standard</div>
+                <div class="ci-stepper"><div class="ci-btn"><i class="ti ti-minus" aria-hidden="true"></i></div><span class="ci-qty">1</span><div class="ci-btn"><i class="ti ti-plus" aria-hidden="true"></i></div></div>
+              </div>
+              <span class="ci-price mono">₹260</span>
+            </div>
+            <div style="padding:14px;background:var(--color-background-secondary);border:0.5px solid var(--bd);border-radius:9px;margin-top:12px">
+              <div style="font-size:12px;font-weight:500;color:var(--ink);margin-bottom:10px">Delivering to</div>
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div style="font-size:12px;color:var(--ink2)"><i class="ti ti-map-pin" aria-hidden="true" style="font-size:14px;vertical-align:-2px;margin-right:5px;color:var(--esp)"></i>Tower B, Floor 9, Flat 903</div>
+                <span style="font-size:11.5px;color:var(--mat);font-weight:500;cursor:pointer">Change</span>
+              </div>
+            </div>
+          </div>
+          <div class="cart-right">
+            <div class="coupon-bar"><i class="ti ti-ticket" aria-hidden="true"></i><span>Apply coupon</span><i class="ti ti-chevron-right arr" aria-hidden="true"></i></div>
+            <div class="bill-box">
+              <div class="bill-title">Bill summary</div>
+              <div class="bill-line"><span>Subtotal</span><span class="mono">₹920</span></div>
+              <div class="bill-line"><span>Delivery fee</span><span class="mono" style="color:var(--mat)">Free</span></div>
+              <div class="bill-line"><span>Platform fee</span><span class="mono">₹5</span></div>
+              <div class="bill-line"><span>GST (5%)</span><span class="mono">₹46</span></div>
+              <div class="bill-line total"><span>Total</span><span class="mono">₹971</span></div>
+            </div>
+            <div class="place-btn">
+              <div><div class="sub">Tower B · Flat 903</div>Place order</div>
+              <span class="mono">₹971 ›</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen" id="w-tracking">
+      <div class="web-frame">
+        <div class="web-nav">
+          <span class="web-logo">CaféConnect</span>
+          <div class="web-nav-links"><div class="web-nav-link">Home</div><div class="web-nav-link">Menu</div><div class="web-nav-link active">Orders</div></div>
+          <div class="web-nav-right"><div class="icon-btn"><i class="ti ti-search" aria-hidden="true"></i></div><div class="web-cart-btn"><i class="ti ti-shopping-cart" aria-hidden="true"></i>Cart<span class="web-cart-count">0</span></div></div>
+        </div>
+        <div class="web-tracking-layout">
+          <div class="tracking-header">
+            <div class="tr-status-block">
+              <div class="tr-order-num">CC-20260623-004</div>
+              <div class="tr-status-name">Being prepared</div>
+              <div class="tr-eta">Arriving by <span>10:28 AM</span> · est. 26 min</div>
+            </div>
+            <span class="pill pill-blu" style="font-size:12px;padding:5px 14px">Preparing</span>
+          </div>
+          <div class="tracking-grid">
+            <div class="stepper-card">
+              <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px">Order progress</div>
+              <div class="step-row"><div class="step-icon-col"><div class="step-dot done"><i class="ti ti-check" aria-hidden="true"></i></div><div class="step-vline done"></div></div><div class="step-body"><div class="step-label">Order placed</div><div class="step-time">10:01 AM</div></div></div>
+              <div class="step-row"><div class="step-icon-col"><div class="step-dot done"><i class="ti ti-check" aria-hidden="true"></i></div><div class="step-vline done"></div></div><div class="step-body"><div class="step-label">Accepted by café</div><div class="step-time">10:03 AM</div></div></div>
+              <div class="step-row"><div class="step-icon-col"><div class="step-dot now"><i class="ti ti-coffee" aria-hidden="true"></i></div><div class="step-vline"></div></div><div class="step-body"><div class="step-label">Preparing your order</div><div class="step-time now">In progress</div></div></div>
+              <div class="step-row"><div class="step-icon-col"><div class="step-dot pend"><i class="ti ti-building-store" aria-hidden="true"></i></div><div class="step-vline"></div></div><div class="step-body"><div class="step-label pend">Ready for pickup</div><div class="step-time">—</div></div></div>
+              <div class="step-row"><div class="step-icon-col"><div class="step-dot pend"><i class="ti ti-home-check" aria-hidden="true"></i></div></div><div class="step-body"><div class="step-label pend">Delivered</div><div class="step-time">—</div></div></div>
+            </div>
+            <div>
+              <div class="order-side-card">
+                <div class="osc-lbl">Order summary</div>
+                <div class="osc-line"><span>Hazelnut Latte (L) × 1</span><span class="mono">₹300</span></div>
+                <div class="osc-line"><span>Grilled Veg Melt × 2</span><span class="mono">₹360</span></div>
+                <div class="osc-line"><span>Cold Brew Float × 1</span><span class="mono">₹260</span></div>
+                <div class="osc-total"><span>Total paid</span><span class="mono">₹971</span></div>
+              </div>
+              <div class="order-side-card">
+                <div class="osc-lbl">Delivering to</div>
+                <div class="addr-block"><strong>Tower B, Floor 9, Flat 903</strong>Sunshine Society<br>Baner, Pune 411045</div>
+              </div>
+              <div class="order-side-card">
+                <div class="osc-lbl">Payment</div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <i class="ti ti-cash" aria-hidden="true" style="font-size:18px;color:var(--mat)"></i>
+                  <div><div style="font-size:12.5px;font-weight:500;color:var(--ink)">Cash on delivery</div><div style="font-size:11px;color:var(--ink3)">Collect ₹971 on arrival</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchSurface(s){
+  document.querySelectorAll('.surface-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.surface').forEach(t=>t.classList.remove('visible'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('surf-'+s).classList.add('visible');
+}
+function switchScreen(surface,id,btn){
+  const prefix = surface==='staff' ? 's-' : 'w-';
+  document.querySelectorAll('#surf-'+surface+' .screen').forEach(s=>s.classList.remove('show'));
+  document.querySelectorAll('#surf-'+surface+' .snav-btn').forEach(b=>b.classList.remove('on'));
+  document.getElementById(id).classList.add('show');
+  btn.classList.add('on');
+}
+</script>

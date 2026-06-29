@@ -1,4 +1,10 @@
-import { IsString, IsBoolean, IsOptional, IsEnum, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+} from 'class-validator';
 import { AddressType } from '@cafeconnect/database';
 
 export class CreateAddressDto {

@@ -1,13 +1,20 @@
-import { IsString, IsEnum, IsOptional, IsNumber, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsNumber,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '@cafeconnect/database';
 
 class OrderItemDto {
   @IsString()
-  menuItemId: string;
+  menuItemId!: string;
 
   @IsNumber()
-  quantity: number;
+  quantity!: number;
 
   @IsArray()
   @IsOptional()
@@ -19,10 +26,10 @@ class OrderItemDto {
 
 export class CreateOrderDto {
   @IsString()
-  addressId: string;
+  addressId!: string;
 
   @IsEnum(PaymentMethod)
-  paymentMethod: PaymentMethod;
+  paymentMethod!: PaymentMethod;
 
   @IsString()
   @IsOptional()
@@ -35,7 +42,7 @@ export class CreateOrderDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
-  items: OrderItemDto[];
+  items!: OrderItemDto[];
 }
 
 // Made with Bob

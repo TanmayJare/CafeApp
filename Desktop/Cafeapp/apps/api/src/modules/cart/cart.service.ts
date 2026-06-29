@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
@@ -73,9 +77,13 @@ export class CartService {
 
     if (dto.selectedOptions && dto.selectedOptions.length > 0) {
       for (const selectedOption of dto.selectedOptions) {
-        const option = menuItem.options.find((o) => o.id === selectedOption.optionId);
+        const option = menuItem.options.find(
+          (o) => o.id === selectedOption.optionId,
+        );
         if (!option) {
-          throw new BadRequestException(`Invalid option: ${selectedOption.optionId}`);
+          throw new BadRequestException(
+            `Invalid option: ${selectedOption.optionId}`,
+          );
         }
         selectedOptionNames.push(option.name);
         totalPriceDelta += option.priceDelta;
@@ -108,10 +116,14 @@ export class CartService {
 
     if (existingItem) {
       // Check if options match
-      const existingOptionNames = existingItem.options.map((o) => o.optionName).sort();
+      const existingOptionNames = existingItem.options
+        .map((o) => o.optionName)
+        .sort();
       const newOptionNames = selectedOptionNames.sort();
-      
-      if (JSON.stringify(existingOptionNames) === JSON.stringify(newOptionNames)) {
+
+      if (
+        JSON.stringify(existingOptionNames) === JSON.stringify(newOptionNames)
+      ) {
         // Same item with same options, just update quantity
         return this.prisma.cartItem.update({
           where: { id: existingItem.id },
@@ -138,13 +150,16 @@ export class CartService {
         menuItemId: dto.menuItemId,
         quantity: dto.quantity,
         options: {
-          create: dto.selectedOptions?.map((opt) => {
-            const option = menuItem.options.find((o) => o.id === opt.optionId);
-            return {
-              optionName: option!.name,
-              priceDelta: option!.priceDelta,
-            };
-          }) || [],
+          create:
+            dto.selectedOptions?.map((opt) => {
+              const option = menuItem.options.find(
+                (o) => o.id === opt.optionId,
+              );
+              return {
+                optionName: option!.name,
+                priceDelta: option!.priceDelta,
+              };
+            }) || [],
         },
       },
       include: {
@@ -161,7 +176,11 @@ export class CartService {
     return cartItem;
   }
 
-  async updateCartItem(userId: string, cartItemId: string, dto: UpdateCartItemDto) {
+  async updateCartItem(
+    userId: string,
+    cartItemId: string,
+    dto: UpdateCartItemDto,
+  ) {
     const cartItem = await this.prisma.cartItem.findUnique({
       where: { id: cartItemId },
       include: {
@@ -238,7 +257,10 @@ export class CartService {
 
     const subtotal = cart.items.reduce((sum, item) => {
       const itemPrice = item.menuItem.price;
-      const optionsPrice = item.options.reduce((optSum, opt) => optSum + opt.priceDelta, 0);
+      const optionsPrice = item.options.reduce(
+        (optSum, opt) => optSum + opt.priceDelta,
+        0,
+      );
       return sum + (itemPrice + optionsPrice) * item.quantity;
     }, 0);
 
@@ -254,8 +276,14 @@ export class CartService {
         quantity: item.quantity,
         options: item.options,
         itemPrice: item.menuItem.price,
-        optionsPrice: item.options.reduce((sum, opt) => sum + opt.priceDelta, 0),
-        totalPrice: (item.menuItem.price + item.options.reduce((sum, opt) => sum + opt.priceDelta, 0)) * item.quantity,
+        optionsPrice: item.options.reduce(
+          (sum, opt) => sum + opt.priceDelta,
+          0,
+        ),
+        totalPrice:
+          (item.menuItem.price +
+            item.options.reduce((sum, opt) => sum + opt.priceDelta, 0)) *
+          item.quantity,
       })),
     };
   }
