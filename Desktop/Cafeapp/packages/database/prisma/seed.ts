@@ -32,8 +32,8 @@ async function main() {
   console.log('Creating users...');
   const staff = await prisma.user.create({
     data: {
-      email: 'staff@cafe.test',
-      name: 'Staff User',
+      email: 'tanmayjare13@gmail.com',
+      name: 'Tanmay (Staff)',
       phone: '+919876543210',
       role: 'STAFF',
     },
@@ -463,12 +463,11 @@ async function main() {
   });
 
   console.log('✅ Seeding completed successfully!');
-  console.log('\n📝 Test Credentials:');
-  console.log('Staff: staff@cafe.test');
-  console.log('Rider: rider@cafe.test');
-  console.log('Admin: admin@cafe.test');
-  console.log('Customer: customer@test.com');
-  console.log('\n🔑 OTP for dev: 123456');
+  console.log('\n📝 Credentials:');
+  console.log('Staff:  tanmayjare13@gmail.com  (password: cafestaff2024)');
+  console.log('Rider:  rider@cafe.test');
+  console.log('Admin:  admin@cafe.test');
+  console.log('Customer: any email → OTP sent via Gmail');
 }
 
 main()

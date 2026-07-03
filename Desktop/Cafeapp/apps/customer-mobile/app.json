@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "CaféConnect",
+    "slug": "cafeconnect-customer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "cafeconnect",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1C0F08"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.cafeconnect.customer",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "CaféConnect uses your location to set your delivery address.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "CaféConnect uses your location to set your delivery address.",
+        "NSAppTransportSecurity": {
+          "NSExceptionDomains": {
+            "tile.openstreetmap.org": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            }
+          }
+        }
+      }
+    },
+    "android": {
+      "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#1C0F08" },
+      "package": "com.cafeconnect.customer",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": { "bundler": "metro", "output": "static" },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      ["expo-location", {
+        "locationWhenInUsePermission": "Allow CaféConnect to use your location to set your delivery address."
+      }]
+    ],
+    "experiments": { "typedRoutes": true }
+  }
+}

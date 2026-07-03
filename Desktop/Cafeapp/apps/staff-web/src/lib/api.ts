@@ -1,6 +1,17 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+const getApiUrl = () => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('10.') || hostname.startsWith('192.168.') || hostname.startsWith('172.');
+    if (isLocal) {
+      return `http://${hostname}:3000/api`;
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+};
+
+const API_URL = getApiUrl();
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -44,8 +55,7 @@ api.interceptors.response.use(
 
 // Auth API
 export const authApi = {
-  sendOtp: (email: string) => api.post('/auth/send-otp', { email }),
-  verifyOtp: (email: string, code: string) => api.post('/auth/verify-otp', { email, code }),
+  staffLogin: (email: string, password: string) => api.post('/auth/staff-login', { email, password }),
   getMe: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
 };
@@ -69,6 +79,14 @@ export const menuApi = {
   createDailySpecial: (data: any) => api.post('/menu/daily-specials', data),
   updateDailySpecial: (id: string, data: any) => api.put(`/menu/daily-specials/${id}`, data),
   deleteDailySpecial: (id: string) => api.delete(`/menu/daily-specials/${id}`),
+
+  // V3 specials endpoints
+  getSpecials: () => api.get('/menu/specials'),
+  createSpecial: (data: any) => api.post('/menu/specials', data),
+  updateSpecial: (id: string, data: any) => api.patch(`/menu/specials/${id}`, data),
+  deleteSpecial: (id: string) => api.delete(`/menu/specials/${id}`),
+  reorderSpecials: (items: { id: string; sortOrder: number }[]) =>
+    api.patch('/menu/specials/reorder', { items }),
 };
 
 // Made with Bob

@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "CaféConnect Rider",
+    "slug": "cafeconnect-rider",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "rider",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1C0F08"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.cafeconnect.rider",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera is needed to scan KOT QR codes at order pickup.",
+        "NSLocationWhenInUseUsageDescription": "Location is needed to track your delivery route."
+      }
+    },
+    "android": {
+      "package": "com.cafeconnect.rider",
+      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Camera is needed to scan KOT QR codes at order pickup."
+        }
+      ]
+    ]
+  }
+}

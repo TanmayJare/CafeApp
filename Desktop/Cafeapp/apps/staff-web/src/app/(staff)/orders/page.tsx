@@ -1,303 +1,347 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useSocket } from '@/hooks/useSocket';
+import { Coffee, ChevronRight, RefreshCw, Printer } from 'lucide-react';
+import { KOTModal } from '@/components/staff/KOTModal';
 
+/* ─── Types matching the actual Order schema from orders.service.ts ─────── */
 interface OrderItem {
-  id: string;
-  quantity: number;
-  price: number;
-  customizations: string | null;
-  menuItem: {
-    id: string;
-    name: string;
-  };
+  id:         string;
+  quantity:   number;
+  unitPrice:  number;
+  lineTotal:  number;
+  name:       string;         // snapshot
+  options:    { name: string; priceDelta: number }[];
+  menuItem:   { id: string; name: string };
 }
 
 interface Order {
-  id: string;
-  orderNumber: string;
-  status: 'PLACED' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
-  totalAmount: number;
-  deliveryAddress: string;
-  customerPhone: string | null;
-  specialInstructions: string | null;
-  createdAt: string;
-  items: OrderItem[];
-  user: {
+  id:           string;
+  orderNumber:  string;
+  status:       'PLACED' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
+  grandTotal:   number;
+  subtotal:     number;
+  taxAmount:    number;
+  deliveryFee:  number;
+  notes:        string | null;
+  paymentMethod: string;
+  createdAt:    string;
+  items:        OrderItem[];
+  address: {
+    label:       string | null;
+    addressLine: string | null;
+    tower:       string | null;
+    wing:        string | null;
+    floor:       string | null;
+    flatNumber:  string | null;
+    pincode:     string | null;
+  };
+  customer: {
+    id:    string;
+    name:  string | null;
     email: string;
-    name: string | null;
+    phone: string | null;
   };
 }
 
-const statusColors = {
-  PLACED: 'bg-blue-500',
-  ACCEPTED: 'bg-purple-500',
-  PREPARING: 'bg-yellow-500',
-  READY: 'bg-green-500',
-  DELIVERED: 'bg-gray-500',
-  CANCELLED: 'bg-red-500',
+/* ─── Status metadata ───────────────────────────────────────────────────── */
+const STATUS: Record<Order['status'], { bg: string; color: string; label: string; dot: string }> = {
+  PLACED:    { bg: 'rgba(59,130,246,0.1)',  color: '#2563EB', label: 'New Order',  dot: '#3B82F6' },
+  ACCEPTED:  { bg: 'rgba(139,92,246,0.1)',  color: '#7C3AED', label: 'Accepted',   dot: '#8B5CF6' },
+  PREPARING: { bg: 'rgba(245,158,11,0.1)',  color: '#B45309', label: 'Preparing',  dot: '#F59E0B' },
+  READY:     { bg: 'rgba(79,122,84,0.1)',   color: '#4F7A54', label: 'Ready',      dot: '#6DBF7E' },
+  DELIVERED: { bg: 'rgba(93,64,55,0.1)',    color: '#9E7B6D', label: 'Delivered',  dot: '#B0998B' },
+  CANCELLED: { bg: 'rgba(169,68,66,0.1)',   color: '#A94442', label: 'Cancelled',  dot: '#A94442' },
 };
 
-const statusLabels = {
-  PLACED: 'New Order',
-  ACCEPTED: 'Accepted',
-  PREPARING: 'Preparing',
-  READY: 'Ready',
-  DELIVERED: 'Delivered',
-  CANCELLED: 'Cancelled',
+const STATUS_FLOW: Partial<Record<Order['status'], Order['status']>> = {
+  PLACED: 'ACCEPTED', ACCEPTED: 'PREPARING', PREPARING: 'READY',
 };
+
+/** Build a one-line delivery address string from the Address object */
+function formatAddress(addr: Order['address']): string {
+  if (!addr) return 'N/A';
+  const parts: string[] = [];
+  if (addr.flatNumber) parts.push(addr.flatNumber);
+  if (addr.floor)      parts.push(`Floor ${addr.floor}`);
+  if (addr.wing)       parts.push(`Wing ${addr.wing}`);
+  if (addr.tower)      parts.push(addr.tower);
+  if (addr.addressLine) parts.push(addr.addressLine);
+  if (addr.pincode)    parts.push(addr.pincode);
+  return parts.join(', ') || addr.label || 'N/A';
+}
+
+const KOT_STATUSES: Order['status'][] = ['ACCEPTED', 'PREPARING', 'READY'];
 
 export default function OrdersPage() {
   const { accessToken } = useAuthStore();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  const [orders,     setOrders]     = useState<Order[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [connStatus, setConnStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  const [toast, setToast] = useState<string | null>(null);
+  const [kotOrder, setKotOrder] = useState<{ id: string; orderNumber: string } | null>(null);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  // 34B.1/34B.2 — subscribe to real-time order events
+  useSocket(
+    accessToken,
+    {
+      // New order: prepend to list
+      'order:new': (o: Order) => {
+        setOrders((prev) => [o, ...prev]);
+        showToast(`New order #${o.orderNumber} received!`);
+      },
+      // Status change: update in-place (34B.2)
+      'order:status': (d: { orderId: string; status: Order['status']; order: Order }) => {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === d.orderId ? { ...o, status: d.status } : o)),
+        );
+      },
+    },
+    () => setConnStatus('connected'),
+    () => setConnStatus('disconnected'),
+  );
 
   useEffect(() => {
     fetchOrders();
-    
-    // Initialize Socket.IO connection
-    if (accessToken) {
-      const newSocket = io('http://localhost:3000/orders', {
-        auth: { token: accessToken },
-        transports: ['websocket', 'polling'],
-      });
-
-      newSocket.on('connect', () => {
-        console.log('✅ Socket.IO connected');
-        setConnectionStatus('connected');
-      });
-
-      newSocket.on('disconnect', () => {
-        console.log('❌ Socket.IO disconnected');
-        setConnectionStatus('disconnected');
-      });
-
-      newSocket.on('connect_error', (error) => {
-        console.error('Socket.IO connection error:', error);
-        setConnectionStatus('disconnected');
-      });
-
-      // Listen for new orders
-      newSocket.on('order:new', (order: Order) => {
-        console.log('🔔 New order received:', order);
-        setOrders((prev) => [order, ...prev]);
-        
-        // Show browser notification
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('New Order!', {
-            body: `Order #${order.orderNumber} - ₹${order.totalAmount}`,
-            icon: '/favicon.ico',
-          });
-        }
-      });
-
-      // Listen for order status updates
-      newSocket.on('order:status', (data: { orderId: string; status: Order['status'] }) => {
-        console.log('📦 Order status updated:', data);
-        setOrders((prev) =>
-          prev.map((order) =>
-            order.id === data.orderId ? { ...order, status: data.status } : order
-          )
-        );
-      });
-
-      setSocket(newSocket);
-
-      // Request notification permission
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-
-      return () => {
-        newSocket.close();
-      };
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
     }
-  }, [accessToken]);
+  }, []);
 
   const fetchOrders = async () => {
     try {
-      const response = await api.get('/orders');
-      setOrders(response.data);
-    } catch (error) {
-      console.error('Failed to fetch orders:', error);
-    } finally {
-      setLoading(false);
-    }
+      const r = await api.get('/orders');
+      setOrders(r.data);
+    } catch {}
+    setLoading(false);
   };
 
-  const updateOrderStatus = async (orderId: string, status: Order['status']) => {
+  const updateStatus = async (orderId: string, status: Order['status']) => {
     try {
       await api.patch(`/orders/${orderId}/status`, { status });
-      // The socket will handle the UI update
-    } catch (error) {
-      console.error('Failed to update order status:', error);
-    }
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    } catch {}
   };
-
-  const getNextStatus = (currentStatus: Order['status']): Order['status'] | null => {
-    const statusFlow: Record<Order['status'], Order['status'] | null> = {
-      PLACED: 'ACCEPTED',
-      ACCEPTED: 'PREPARING',
-      PREPARING: 'READY',
-      READY: 'DELIVERED',
-      DELIVERED: null,
-      CANCELLED: null,
-    };
-    return statusFlow[currentStatus];
-  };
-
-  const getNextStatusLabel = (currentStatus: Order['status']): string => {
-    const nextStatus = getNextStatus(currentStatus);
-    if (!nextStatus) return '';
-    return statusLabels[nextStatus];
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading orders...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div style={{ fontFamily: 'Inter,sans-serif', color: '#2B1810' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32 }}>
         <div>
-          <h1 className="text-3xl font-bold">Orders Dashboard</h1>
-          <p className="text-gray-600 mt-1">Manage incoming orders in real-time</p>
+          <h1 style={{ fontFamily: '"Playfair Display",serif', fontSize: 'clamp(24px,3vw,32px)', fontWeight: 700, color: '#2B1810', letterSpacing: '-0.025em', marginBottom: 6 }}>
+            Orders Dashboard
+          </h1>
+          <p style={{ fontSize: 14, color: '#9E7B6D' }}>Manage incoming orders in real-time</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className={`h-3 w-3 rounded-full ${
-            connectionStatus === 'connected' ? 'bg-green-500' : 
-            connectionStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' : 
-            'bg-red-500'
-          }`}></div>
-          <span className="text-sm text-gray-600">
-            {connectionStatus === 'connected' ? 'Live' : 
-             connectionStatus === 'connecting' ? 'Connecting...' : 
-             'Disconnected'}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Live indicator */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 7, padding: '6px 14px', borderRadius: 20,
+            background:  connStatus === 'connected' ? 'rgba(109,191,126,0.12)' : 'rgba(169,68,66,0.1)',
+            border: `1px solid ${connStatus === 'connected' ? 'rgba(109,191,126,0.3)' : 'rgba(169,68,66,0.2)'}`,
+          }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%', display: 'inline-block',
+              background: connStatus === 'connected' ? '#6DBF7E' : connStatus === 'connecting' ? '#F59E0B' : '#A94442',
+              animation: connStatus !== 'connected' ? 'pulse 1.5s ease-in-out infinite' : 'none',
+            }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: connStatus === 'connected' ? '#4F7A54' : '#A94442' }}>
+              {connStatus === 'connected' ? 'Live' : connStatus === 'connecting' ? 'Connecting…' : 'Disconnected'}
+            </span>
+          </div>
+          <button
+            onClick={fetchOrders}
+            style={{ width: 36, height: 36, borderRadius: 10, border: '1.5px solid rgba(93,64,55,0.18)', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(232,220,203,0.5)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#FFFFFF'; }}
+          >
+            <RefreshCw size={15} color="#5D4037" />
+          </button>
         </div>
       </div>
 
-      {orders.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-gray-500 text-lg">No orders yet</p>
-            <p className="text-gray-400 text-sm mt-2">New orders will appear here automatically</p>
-          </CardContent>
-        </Card>
+      {/* Loading */}
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '80px 0', color: '#9E7B6D' }}>
+          <div style={{ width: 40, height: 40, border: '2.5px solid #E8DCCB', borderTopColor: '#3E2723', borderRadius: '50%', animation: 'spin 0.9s linear infinite', marginBottom: 14 }} />
+          <p style={{ fontSize: 14 }}>Loading orders…</p>
+        </div>
+
+      ) : orders.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '72px 24px', background: '#FFFFFF', borderRadius: 20, border: '1px solid rgba(93,64,55,0.08)' }}>
+          <Coffee size={40} color="#E8DCCB" style={{ margin: '0 auto 14px' }} />
+          <p style={{ fontFamily: '"Playfair Display",serif', fontSize: 18, color: '#5D4037', marginBottom: 6 }}>No orders yet</p>
+          <p style={{ fontSize: 13.5, color: '#9E7B6D' }}>New orders will appear here automatically</p>
+        </div>
+
       ) : (
-        <div className="grid gap-6">
-          {orders.map((order) => (
-            <Card key={order.id} className="overflow-hidden">
-              <CardHeader className="bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl">Order #{order.orderNumber}</CardTitle>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {new Date(order.createdAt).toLocaleString('en-IN', {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                      })}
-                    </p>
-                  </div>
-                  <Badge className={`${statusColors[order.status]} text-white`}>
-                    {statusLabels[order.status]}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* Order Items */}
-                  <div>
-                    <h3 className="font-semibold mb-3">Items</h3>
-                    <div className="space-y-2">
-                      {order.items.map((item) => (
-                        <div key={item.id} className="flex justify-between text-sm">
-                          <span>
-                            {item.quantity}x {item.menuItem.name}
-                            {item.customizations && (
-                              <span className="text-gray-500 text-xs ml-2">
-                                ({item.customizations})
-                              </span>
-                            )}
-                          </span>
-                          <span className="font-medium">₹{item.price * item.quantity}</span>
-                        </div>
-                      ))}
-                      <div className="border-t pt-2 flex justify-between font-bold">
-                        <span>Total</span>
-                        <span>₹{order.totalAmount}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {orders.map(order => {
+            const s          = STATUS[order.status];
+            const nextStatus = STATUS_FLOW[order.status];
+            return (
+              <div key={order.id} style={{ background: '#FFFFFF', borderRadius: 20, border: '1px solid rgba(93,64,55,0.08)', boxShadow: '0 2px 12px rgba(43,24,16,0.05)', overflow: 'hidden' }}>
+
+                {/* Card header */}
+                <div style={{ padding: '18px 22px 16px', borderBottom: '1px solid rgba(93,64,55,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(250,248,245,0.7)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#3E2723,#5D4037)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontFamily: '"Playfair Display",serif', fontSize: 14, fontWeight: 700, color: '#FAF8F5' }}>#{order.orderNumber.slice(-3)}</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#2B1810' }}>Order #{order.orderNumber}</div>
+                      <div style={{ fontSize: 12, color: '#9E7B6D', marginTop: 2 }}>
+                        {new Date(order.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                       </div>
                     </div>
                   </div>
-
-                  {/* Customer & Delivery Info */}
-                  <div>
-                    <h3 className="font-semibold mb-3">Delivery Details</h3>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <span className="text-gray-600">Customer:</span>
-                        <p className="font-medium">{order.user?.name || order.user?.email || 'N/A'}</p>
-                      </div>
-                      {order.customerPhone && (
-                        <div>
-                          <span className="text-gray-600">Phone:</span>
-                          <p className="font-medium">{order.customerPhone}</p>
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-gray-600">Address:</span>
-                        <p className="font-medium">{order.deliveryAddress}</p>
-                      </div>
-                      {order.specialInstructions && (
-                        <div>
-                          <span className="text-gray-600">Special Instructions:</span>
-                          <p className="font-medium text-orange-600">{order.specialInstructions}</p>
-                        </div>
-                      )}
-                    </div>
+                  <div style={{ padding: '5px 13px', borderRadius: 20, background: s.bg, fontSize: 11.5, fontWeight: 700, color: s.color, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.dot, display: 'inline-block' }} />
+                    {s.label}
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="mt-6 flex gap-3">
-                  {getNextStatus(order.status) && (
-                    <Button
-                      onClick={() => updateOrderStatus(order.id, getNextStatus(order.status)!)}
-                      className="flex-1"
-                    >
-                      Mark as {getNextStatusLabel(order.status)}
-                    </Button>
-                  )}
-                  {order.status === 'PLACED' && (
-                    <Button
-                      onClick={() => updateOrderStatus(order.id, 'CANCELLED')}
-                      variant="outline"
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      Cancel Order
-                    </Button>
-                  )}
+                {/* Card body */}
+                <div style={{ padding: '18px 22px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+
+                  {/* Items */}
+                  <div>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B57A3C', marginBottom: 12 }}>Items</div>
+                    {order.items.map(item => (
+                      <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                        <span style={{ color: '#5D4037' }}>
+                          <span style={{ fontWeight: 600, color: '#2B1810' }}>{item.quantity}×</span> {item.name}
+                          {Array.isArray(item.options) && item.options.length > 0 && (
+                            <span style={{ color: '#B0998B', fontSize: 11.5, marginLeft: 6 }}>
+                              ({item.options.map(o => o.name).join(', ')})
+                            </span>
+                          )}
+                        </span>
+                        <span style={{ fontWeight: 600, color: '#2B1810' }}>&#8377;{item.lineTotal.toFixed(0)}</span>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1.5px solid rgba(93,64,55,0.1)', paddingTop: 10, marginTop: 8 }}>
+                      <span style={{ fontFamily: '"Playfair Display",serif', fontWeight: 700, color: '#2B1810', fontSize: 14 }}>Total</span>
+                      <span style={{ fontFamily: '"Playfair Display",serif', fontWeight: 700, color: '#B57A3C', fontSize: 15 }}>&#8377;{order.grandTotal.toFixed(0)}</span>
+                    </div>
+                  </div>
+
+                  {/* Delivery info */}
+                  <div>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B57A3C', marginBottom: 12 }}>Delivery Details</div>
+                    {[
+                      { label: 'Customer', val: order.customer?.name || order.customer?.email || 'N/A' },
+                      ...(order.customer?.phone ? [{ label: 'Phone', val: order.customer.phone }] : []),
+                      { label: 'Address',  val: formatAddress(order.address) },
+                      { label: 'Payment',  val: order.paymentMethod },
+                    ].map(({ label, val }) => (
+                      <div key={label} style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, color: '#B0998B', marginBottom: 2 }}>{label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#2B1810' }}>{val}</div>
+                      </div>
+                    ))}
+                    {order.notes && (
+                      <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 10, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                        <div style={{ fontSize: 11, color: '#B45309', fontWeight: 600, marginBottom: 3 }}>Notes</div>
+                        <div style={{ fontSize: 12.5, color: '#92400E' }}>{order.notes}</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                {/* Actions */}
+                {(nextStatus || order.status === 'PLACED' || KOT_STATUSES.includes(order.status)) && (
+                  <div style={{ padding: '0 22px 18px', display: 'flex', gap: 10 }}>
+                    {KOT_STATUSES.includes(order.status) && (
+                      <button
+                        onClick={() => setKotOrder({ id: order.id, orderNumber: order.orderNumber })}
+                        style={{
+                          padding: '11px 18px', borderRadius: 12,
+                          background: 'rgba(181,122,60,0.1)', border: '1.5px solid rgba(181,122,60,0.3)',
+                          color: '#B57A3C', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                          fontFamily: 'Inter,sans-serif', display: 'flex', alignItems: 'center', gap: 6,
+                          transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(181,122,60,0.18)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(181,122,60,0.1)'; }}
+                      >
+                        <Printer size={14} /> Print KOT
+                      </button>
+                    )}
+                    {nextStatus && (
+                      <button
+                        onClick={() => updateStatus(order.id, nextStatus)}
+                        style={{
+                          flex: 1, padding: '11px', borderRadius: 12,
+                          background: 'linear-gradient(135deg,#2B1810,#5D4037)',
+                          color: '#FAF8F5', border: 'none', cursor: 'pointer',
+                          fontSize: 13.5, fontWeight: 600, fontFamily: 'Inter,sans-serif',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                          transition: 'all 0.2s', boxShadow: '0 3px 14px rgba(43,24,16,0.25)',
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
+                      >
+                        Mark as {STATUS[nextStatus].label} <ChevronRight size={14} />
+                      </button>
+                    )}
+                    {order.status === 'PLACED' && (
+                      <button
+                        onClick={() => updateStatus(order.id, 'CANCELLED')}
+                        style={{
+                          padding: '11px 20px', borderRadius: 12,
+                          background: 'rgba(169,68,66,0.08)', border: '1.5px solid rgba(169,68,66,0.2)',
+                          color: '#A94442', cursor: 'pointer', fontSize: 13.5, fontWeight: 600,
+                          fontFamily: 'Inter,sans-serif', transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(169,68,66,0.15)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(169,68,66,0.08)'; }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
+
+      {kotOrder && (
+        <KOTModal
+          orderId={kotOrder.id}
+          orderNumber={kotOrder.orderNumber}
+          onClose={() => setKotOrder(null)}
+        />
+      )}
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+          background: '#2B1810', color: '#FAF8F5', padding: '12px 20px',
+          borderRadius: 14, fontSize: 13.5, fontWeight: 600,
+          boxShadow: '0 8px 32px rgba(43,24,16,0.35)',
+          animation: 'slideIn 0.3s ease', maxWidth: 320,
+        }}>
+          🛎 {toast}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+        @keyframes slideIn{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+      `}</style>
     </div>
   );
 }

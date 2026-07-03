@@ -441,6 +441,21 @@ export class OrdersService {
     // Emit status update event
     this.ordersGateway.emitOrderStatusUpdate(id, status, updatedOrder);
 
+    // 34B.5 — emit revenue delta when order is delivered
+    if (status === OrderStatus.DELIVERED) {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const agg = await this.prisma.order.aggregate({
+        where: {
+          status: OrderStatus.DELIVERED,
+          updatedAt: { gte: todayStart },
+        },
+        _sum: { grandTotal: true },
+      });
+      const newTotal = Number(agg._sum.grandTotal ?? 0);
+      this.ordersGateway.emitRevenueUpdated(Number(updatedOrder.grandTotal), newTotal);
+    }
+
     return updatedOrder;
   }
 

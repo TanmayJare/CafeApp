@@ -9,12 +9,16 @@ import { CartModule } from './modules/cart/cart.module';
 import { AddressModule } from './modules/address/address.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { RidersModule } from './modules/riders/riders.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     PrismaModule,
     AuthModule,
     MenuModule,
@@ -22,6 +26,8 @@ import { PaymentsModule } from './modules/payments/payments.module';
     AddressModule,
     OrdersModule,
     PaymentsModule,
+    RidersModule,
+    InvoicesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

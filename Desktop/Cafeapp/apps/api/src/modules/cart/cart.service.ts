@@ -1,11 +1,22 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { OrdersGateway } from '../orders/orders.gateway';
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 
 @Injectable()
 export class CartService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => OrdersGateway))
+    private ordersGateway: OrdersGateway,
+  ) {}
+
+  // 34A.4 — fetch full cart and push to customer's personal socket room
+  private async emitCartUpdate(userId: string) {
+    const cart = await this.getCart(userId);
+    this.ordersGateway.emitCartUpdated(userId, cart);
+  }
 
   async getCart(userId: string) {
     const cart = await this.prisma.cart.findUnique({
@@ -113,7 +124,7 @@ export class CartService {
       
       if (JSON.stringify(existingOptionNames) === JSON.stringify(newOptionNames)) {
         // Same item with same options, just update quantity
-        return this.prisma.cartItem.update({
+        const updated = await this.prisma.cartItem.update({
           where: { id: existingItem.id },
           data: {
             quantity: existingItem.quantity + dto.quantity,
@@ -128,6 +139,8 @@ export class CartService {
             options: true,
           },
         });
+        await this.emitCartUpdate(userId);
+        return updated;
       }
     }
 
@@ -158,6 +171,7 @@ export class CartService {
       },
     });
 
+    await this.emitCartUpdate(userId);
     return cartItem;
   }
 
@@ -177,7 +191,7 @@ export class CartService {
       throw new BadRequestException('Cart item does not belong to user');
     }
 
-    return this.prisma.cartItem.update({
+    const result = await this.prisma.cartItem.update({
       where: { id: cartItemId },
       data: {
         quantity: dto.quantity,
@@ -192,6 +206,8 @@ export class CartService {
         options: true,
       },
     });
+    await this.emitCartUpdate(userId);
+    return result;
   }
 
   async removeFromCart(userId: string, cartItemId: string) {
@@ -214,6 +230,7 @@ export class CartService {
       where: { id: cartItemId },
     });
 
+    await this.emitCartUpdate(userId);
     return { message: 'Item removed from cart' };
   }
 
@@ -230,6 +247,7 @@ export class CartService {
       where: { cartId: cart.id },
     });
 
+    await this.emitCartUpdate(userId);
     return { message: 'Cart cleared' };
   }
 

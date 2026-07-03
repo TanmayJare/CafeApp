@@ -21,6 +21,13 @@ enum AddressType {
   EXTERNAL
 }
 
+enum AddressLabel {
+  HOME
+  WORK
+  OTHER
+  CUSTOM
+}
+
 enum OrderStatus {
   PLACED
   ACCEPTED
@@ -75,6 +82,7 @@ model User {
   email         String    @unique
   phone         String?
   name          String?
+  passwordHash  String?   // For staff/admin accounts only; null for OTP-only customers
   role          UserRole  @default(CUSTOMER)
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
@@ -127,16 +135,20 @@ model SocietyTower {
   name      String   // e.g. "Tower A"
   wings     String[] // e.g. ["A", "B"]
   maxFloors Int      @default(20)
+  latitude  Float?
+  longitude Float?
 }
 
 // ─── Addresses ───────────────────────────────────────────
 
 model Address {
-  id         String      @id @default(cuid())
-  userId     String
-  type       AddressType
-  label      String      @default("Home") // Home, Work, Other
-  isDefault  Boolean     @default(false)
+  id          String       @id @default(cuid())
+  userId      String
+  type        AddressType
+  label       AddressLabel @default(HOME)
+  customLabel String?                       // Used when label = CUSTOM
+  nickname    String?                       // e.g. "Mom's place"
+  isDefault   Boolean      @default(false)
 
   // Society fields
   societyName String?
@@ -145,7 +157,7 @@ model Address {
   floor       String?
   flatNumber  String?
 
-  // External fields
+  // External / map-picked fields
   addressLine String?
   landmark    String?
   pincode     String?
@@ -156,6 +168,7 @@ model Address {
   orders Order[]
 
   @@index([userId])
+  @@index([userId, isDefault])
 }
 
 // ─── Menu ────────────────────────────────────────────────
@@ -169,6 +182,8 @@ model Category {
   isActive     Boolean    @default(true)
   items        MenuItem[]
   createdAt    DateTime   @default(now())
+
+  @@index([isActive, sortOrder])
 }
 
 model MenuItem {
@@ -187,7 +202,7 @@ model MenuItem {
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
-  @@index([categoryId])
+  @@index([categoryId, sortOrder])
   @@index([isAvailable])
 }
 
@@ -204,16 +219,27 @@ model MenuItemOption {
 }
 
 model DailySpecial {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  price       Float
-  imageUrl    String?
-  availableOn DateTime @db.Date
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id               String    @id @default(cuid())
+  title            String
+  description      String?
+  imageUrl         String?
+  badgeText        String?             // e.g. "Chef's pick", "Limited time" — max 20 chars
+  originalPrice    Float?              // Crossed-out price; null = no strikethrough shown
+  discountedPrice  Float               // The price the customer pays
+  // Keep legacy price for backcompat during migration
+  price            Float               @default(0)
+  linkedMenuItemId String?             // Optional link to MenuItem
+  availableFrom    DateTime            // Start of availability window
+  availableUntil   DateTime            // End of availability window
+  // Keep legacy date for backcompat
+  availableOn      DateTime?           @db.Date
+  isActive         Boolean             @default(true)
+  sortOrder        Int                 @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
-  @@index([availableOn])
+  @@index([availableFrom, availableUntil, isActive])
+  @@index([sortOrder])
 }
 
 // ─── Home Screen Content ───────────────────────────────────

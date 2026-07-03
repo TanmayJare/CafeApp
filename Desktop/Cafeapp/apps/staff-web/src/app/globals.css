@@ -1,80 +1,152 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: 0 0% 100%;
-  --color-foreground: 240 10% 3.9%;
-  --color-card: 0 0% 100%;
-  --color-card-foreground: 240 10% 3.9%;
-  --color-popover: 0 0% 100%;
-  --color-popover-foreground: 240 10% 3.9%;
-  --color-primary: 240 5.9% 10%;
-  --color-primary-foreground: 0 0% 98%;
-  --color-secondary: 240 4.8% 95.9%;
-  --color-secondary-foreground: 240 5.9% 10%;
-  --color-muted: 240 4.8% 95.9%;
-  --color-muted-foreground: 240 3.8% 46.1%;
-  --color-accent: 240 4.8% 95.9%;
-  --color-accent-foreground: 240 5.9% 10%;
-  --color-destructive: 0 84.2% 60.2%;
-  --color-destructive-foreground: 0 0% 98%;
-  --color-border: 240 5.9% 90%;
-  --color-input: 240 5.9% 90%;
-  --color-ring: 240 5.9% 10%;
-  --radius: 0.5rem;
+  /* ─── Premium Café Color Palette (matches customer-web) ─────────────────── */
+  --color-espresso:        #2B1810;
+  --color-dark-coffee:     #3E2723;
+  --color-chocolate:       #5D4037;
+  --color-mocha:           #6D4C41;
+  --color-warm-beige:      #E8DCCB;
+  --color-cream:           #F6F1E9;
+  --color-ivory:           #FAF8F5;
+  --color-latte:           #D7C5AE;
+  --color-caramel:         #B57A3C;
+  --color-honey:           #C9964A;
+  --color-gold:            #D4AF37;
+  --color-sage:            #8A9A5B;
+  --color-forest:          #4F6F52;
+
+  --color-primary:         #3E2723;
+  --color-primary-dark:    #2B1810;
+  --color-secondary:       #5D4037;
+  --color-accent:          #B57A3C;
+  --color-success:         #4F7A54;
+  --color-warning:         #D69E2E;
+  --color-danger:          #A94442;
+
+  /* ─── Shadcn-compatible semantic tokens ─────────────────────────────────── */
+  --color-background:      #FAF8F5;
+  --color-foreground:      #2B1810;
+  --color-card:            #FFFFFF;
+  --color-card-foreground: #2B1810;
+  --color-border:          rgba(93,64,55,0.15);
+  --color-input:           rgba(93,64,55,0.15);
+  --color-ring:            #B57A3C;
+  --color-muted:           #F6F1E9;
+  --color-muted-foreground:#9E7B6D;
+  --color-destructive:     #A94442;
+  --color-destructive-foreground: #FAF8F5;
+  --radius:                0.75rem;
+
+  /* ─── Typography ─────────────────────────────────────────────────────────── */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
 }
 
+/* ─── CSS Variables (shadcn compat) ──────────────────────────────────────── */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --primary: 240 5.9% 10%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 5.9% 10%;
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
-  --accent: 240 4.8% 95.9%;
-  --accent-foreground: 240 5.9% 10%;
-  --destructive: 0 84.2% 60.2%;
+  --background:           250 33% 98%;
+  --foreground:           14 44% 13%;
+  --card:                 0 0% 100%;
+  --card-foreground:      14 44% 13%;
+  --popover:              0 0% 100%;
+  --popover-foreground:   14 44% 13%;
+  --primary:              14 44% 18%;
+  --primary-foreground:   40 50% 97%;
+  --secondary:            30 20% 95%;
+  --secondary-foreground: 14 44% 18%;
+  --muted:                30 20% 95%;
+  --muted-foreground:     20 20% 50%;
+  --accent:               30 54% 47%;
+  --accent-foreground:    40 50% 97%;
+  --destructive:          0 50% 46%;
   --destructive-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
-  --ring: 240 5.9% 10%;
-  --radius: 0.5rem;
+  --border:               25 35% 85%;
+  --input:                25 35% 85%;
+  --ring:                 30 54% 47%;
+  --radius:               0.75rem;
 }
 
-.dark {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 3.9%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 240 5.9% 10%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --accent: 240 3.7% 15.9%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 240 4.9% 83.9%;
+/* ─── Reset ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border-color: rgba(93,64,55,0.14);
 }
 
-* {
-  border-color: hsl(var(--border));
+html {
+  scroll-behavior: smooth;
 }
 
+/* ─── Base ───────────────────────────────────────────────────────────────── */
 body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: #FAF8F5;
+  color: #2B1810;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+}
+
+/* ─── Typography ─────────────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Playfair Display', Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(93,64,55,0.2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(93,64,55,0.35); }
+
+/* ─── Selection ──────────────────────────────────────────────────────────── */
+::selection { background: rgba(181,122,60,0.2); color: #2B1810; }
+
+/* ─── Focus ring ─────────────────────────────────────────────────────────── */
+:focus-visible { outline: 2px solid rgba(181,122,60,0.6); outline-offset: 2px; }
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
+@keyframes spin      { to { transform: rotate(360deg); } }
+@keyframes pulse     { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+@keyframes fadeIn    { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeInUp  { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+@keyframes shimmer   { 0% { background-position:-200% 0; } 100% { background-position:200% 0; } }
+@keyframes slideDown { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+
+/* ─── Skeleton ───────────────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, #E8DCCB 25%, #F0E8DB 50%, #E8DCCB 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite;
+  border-radius: 8px;
+}
+
+/* ─── Animation utilities ────────────────────────────────────────────────── */
+.animate-fadeIn    { animation: fadeIn 0.35s ease both; }
+.animate-fadeInUp  { animation: fadeInUp 0.45s ease both; }
+.animate-slideDown { animation: slideDown 0.25s ease both; }
+.animate-spin      { animation: spin 0.9s linear infinite; }
+.animate-pulse     { animation: pulse 1.5s ease-in-out infinite; }
+
+/* ─── Glass ──────────────────────────────────────────────────────────────── */
+.glass {
+  background: rgba(250,248,245,0.88);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid rgba(93,64,55,0.1);
+}
+
+/* ─── 38B.3 — KOT Print styles ──────────────────────────────────────────── */
+@media print {
+  /* Hide everything except the KOT print area */
+  body > *:not(#__next) { display: none !important; }
+  .kot-backdrop { position: static !important; background: none !important; padding: 0 !important; display: block !important; }
+  .kot-modal { box-shadow: none !important; max-height: none !important; overflow: visible !important; border-radius: 0 !important; }
+  .kot-screen-only { display: none !important; }
+  #kot-print-area { padding: 8px !important; }
+  nav, header, aside, footer, [data-sidebar], .no-print { display: none !important; }
 }
 
 /* Made with Bob */

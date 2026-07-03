@@ -1,13 +1,21 @@
 import { IsString, IsBoolean, IsOptional, IsEnum, IsNumber } from 'class-validator';
-import { AddressType } from '@cafeconnect/database';
+import { AddressType, AddressLabel } from '@cafeconnect/database';
 
 export class CreateAddressDto {
   @IsEnum(AddressType)
   type!: AddressType;
 
   @IsOptional()
+  @IsEnum(AddressLabel)
+  label?: AddressLabel;
+
+  @IsOptional()
   @IsString()
-  label?: string;
+  customLabel?: string; // required when label = CUSTOM
+
+  @IsOptional()
+  @IsString()
+  nickname?: string; // e.g. "Mom's place"
 
   @IsOptional()
   @IsBoolean()
@@ -34,7 +42,7 @@ export class CreateAddressDto {
   @IsString()
   flatNumber?: string;
 
-  // External fields
+  // External / map-picked fields
   @IsOptional()
   @IsString()
   addressLine?: string;
