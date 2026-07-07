@@ -89,4 +89,21 @@ export const menuApi = {
     api.patch('/menu/specials/reorder', { items }),
 };
 
-// Made with Bob
+// Admin API
+export const adminApi = {
+  getUsers: () => api.get('/admin/users'),
+  createUser: (data: any) => api.post('/admin/users', data),
+  updateUser: (id: string, data: any) => api.patch(`/admin/users/${id}`, data),
+  deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
+
+  getCustomers: () => api.get('/admin/customers'),
+  getCustomerOrders: (id: string) => api.get(`/admin/customers/${id}/orders`),
+
+  getOrders: () => api.get('/admin/orders'),
+  updateOrder: (id: string, data: any) => api.patch(`/admin/orders/${id}`, data),
+  deleteOrder: (id: string) => api.delete(`/admin/orders/${id}`),
+
+  getBills: () => api.get('/admin/bills'),
+  updateBill: (id: string, data: any) => api.patch(`/admin/bills/${id}`, data),
+  deleteBill: (id: string) => api.delete(`/admin/bills/${id}`),
+};

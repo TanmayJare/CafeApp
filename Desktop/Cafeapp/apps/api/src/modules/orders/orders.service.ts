@@ -35,8 +35,34 @@ export class OrdersService {
       },
     });
 
-    const sequence = (count + 1).toString().padStart(3, '0');
-    return `CC-${dateStr}-${sequence}`;
+    let sequenceNum = count + 1;
+    let orderNumber = `CC-${dateStr}-${sequenceNum.toString().padStart(3, '0')}`;
+    
+    while (true) {
+      const existing = await this.prisma.order.findUnique({
+        where: { orderNumber },
+        select: { id: true },
+      });
+      if (!existing) {
+        break;
+      }
+      sequenceNum++;
+      orderNumber = `CC-${dateStr}-${sequenceNum.toString().padStart(3, '0')}`;
+    }
+
+    return orderNumber;
+  }
+
+  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   }
 
   /**
@@ -72,41 +98,51 @@ export class OrdersService {
    * Create order from cart or direct items
    */
   async create(userId: string, createOrderDto: CreateOrderDto) {
-    const { addressId, paymentMethod, couponCode, notes, items } = createOrderDto;
+    const { addressId, paymentMethod, couponCode, notes, items, tableId } = createOrderDto;
 
-    // Validate address belongs to user
-    const address = await this.addressService.findOne(addressId, userId);
+    // Validate customer name is set (not anonymous)
+    const customer = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!customer || !customer.name || !customer.name.trim()) {
+      throw new BadRequestException('Customer name is required. Please set your name in your profile before placing an order.');
+    }
 
     // Get cafe config
     const config = await this.getCafeConfig();
 
     // Calculate zone and delivery fee
     let deliveryFee = 0;
-    let zoneType;
+    let zoneType: 'PRIMARY' | 'SECONDARY' = 'PRIMARY';
 
-    if (address.type === 'SOCIETY') {
-      zoneType = 'PRIMARY';
-      deliveryFee = config.primaryDeliveryFee;
-    } else {
-      // External address - calculate distance
-      if (!address.latitude || !address.longitude) {
-        throw new BadRequestException('Address coordinates are required');
+    if (addressId) {
+      // Validate address belongs to user
+      const address = await this.addressService.findOne(addressId, userId);
+
+      if (address.type === 'SOCIETY') {
+        zoneType = 'PRIMARY';
+        deliveryFee = config.primaryDeliveryFee;
+      } else {
+        // External address - calculate distance
+        if (!address.latitude || !address.longitude) {
+          throw new BadRequestException('Address coordinates are required');
+        }
+
+        const distance = this.addressService.calculateDistance(
+          config.latitude,
+          config.longitude,
+          address.latitude,
+          address.longitude
+        );
+
+        const zone = this.addressService.determineZone(distance);
+        if (!zone) {
+          throw new BadRequestException('Address is outside delivery range');
+        }
+
+        zoneType = zone;
+        deliveryFee = zone === 'PRIMARY' ? config.primaryDeliveryFee : config.secondaryDeliveryFee;
       }
-
-      const distance = this.addressService.calculateDistance(
-        config.latitude,
-        config.longitude,
-        address.latitude,
-        address.longitude
-      );
-
-      const zone = this.addressService.determineZone(distance);
-      if (!zone) {
-        throw new BadRequestException('Address is outside delivery range');
-      }
-
-      zoneType = zone;
-      deliveryFee = zone === 'PRIMARY' ? config.primaryDeliveryFee : config.secondaryDeliveryFee;
     }
 
     // Validate and calculate order items
@@ -208,53 +244,72 @@ export class OrdersService {
     const taxAmount = subtotal * config.taxRate;
     const grandTotal = subtotal + taxAmount + deliveryFee - discountAmount;
 
-    // Generate order number
-    const orderNumber = await this.generateOrderNumber();
-
-    // Create order with items
-    const order = await this.prisma.order.create({
-      data: {
-        orderNumber,
-        customerId: userId,
-        addressId,
-        status: OrderStatus.PLACED,
-        subtotal,
-        taxAmount,
-        deliveryFee,
-        discountAmount,
-        grandTotal,
-        couponCode,
-        zoneType,
-        paymentMethod,
-        notes,
-        items: {
-          create: orderItems.map(item => ({
-            menuItemId: item.menuItemId,
-            name: item.name,
-            unitPrice: item.unitPrice,
-            quantity: item.quantity,
-            options: item.options,
-            lineTotal: item.lineTotal,
-          })),
-        },
-      },
-      include: {
-        items: {
+    // Generate order number and create order with retries for race conditions
+    let order;
+    let attempts = 0;
+    while (attempts < 5) {
+      try {
+        const orderNumber = await this.generateOrderNumber();
+        order = await this.prisma.order.create({
+          data: {
+            orderNumber,
+            customerId: userId,
+            addressId: addressId || null,
+            tableId: tableId || null,
+            status: OrderStatus.PLACED,
+            subtotal,
+            taxAmount,
+            deliveryFee,
+            discountAmount,
+            grandTotal,
+            couponCode,
+            zoneType,
+            paymentMethod,
+            notes,
+            items: {
+              create: orderItems.map(item => ({
+                menuItemId: item.menuItemId,
+                name: item.name,
+                unitPrice: item.unitPrice,
+                quantity: item.quantity,
+                options: item.options,
+                lineTotal: item.lineTotal,
+              })),
+            },
+          },
           include: {
-            menuItem: true,
+            items: {
+              include: {
+                menuItem: true,
+              },
+            },
+            address: true,
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+              },
+            },
           },
-        },
-        address: true,
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-          },
-        },
-      },
-    });
+        });
+        break; // Success!
+      } catch (err: any) {
+        // If unique constraint error on orderNumber, retry!
+        if (err.code === 'P2002' && err.meta?.target?.includes('orderNumber')) {
+          attempts++;
+          // Add a tiny random delay to spread concurrent requests
+          await new Promise(resolve => setTimeout(resolve, Math.random() * 150));
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    if (!order) {
+      throw new BadRequestException('Failed to generate a unique order number. Please try again.');
+    }
 
     // Clear user's cart after successful order
     const cart = await this.prisma.cart.findUnique({
@@ -264,6 +319,14 @@ export class OrdersService {
     if (cart) {
       await this.prisma.cartItem.deleteMany({
         where: { cartId: cart.id },
+      });
+    }
+
+    // Update table status to OCCUPIED if dine-in
+    if (tableId) {
+      await this.prisma.table.update({
+        where: { id: tableId },
+        data: { status: 'OCCUPIED' },
       });
     }
 
@@ -382,6 +445,7 @@ export class OrdersService {
   ) {
     const order = await this.prisma.order.findUnique({
       where: { id },
+      include: { address: true },
     });
 
     if (!order) {
@@ -398,7 +462,55 @@ export class OrdersService {
       throw new ForbiddenException('You can only update your assigned orders');
     }
 
+    // Verify proximity to destination before allowing delivery completion (38D.3)
+    if (status === OrderStatus.DELIVERED && userRole === UserRole.RIDER) {
+      if (order.address && order.address.latitude !== null && order.address.longitude !== null) {
+        const latestLocation = await this.prisma.riderLocation.findFirst({
+          where: {
+            orderId: id,
+            riderId: userId,
+          },
+          orderBy: {
+            timestamp: 'desc',
+          },
+        });
+
+        if (!latestLocation) {
+          throw new BadRequestException('No location updates received from rider yet. Proximity verification failed.');
+        }
+
+        const distanceMeters = this.calculateDistance(
+          latestLocation.latitude,
+          latestLocation.longitude,
+          order.address.latitude,
+          order.address.longitude
+        ) * 1000;
+
+        if (distanceMeters > 5) {
+          throw new BadRequestException(
+            `You must be within 5 meters of the delivery address to mark it as delivered. Current distance: ${distanceMeters.toFixed(1)} meters.`
+          );
+        }
+      }
+    }
+
     const updateData: any = { status };
+
+    // Resolve name of the acting user
+    const actingUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    const staffName = actingUser?.name || actingUser?.email || 'System';
+
+    if (status === OrderStatus.ACCEPTED) {
+      updateData.acceptedAt = new Date();
+      updateData.acceptedStaffName = staffName;
+    } else if (status === OrderStatus.READY) {
+      updateData.confirmedAt = new Date();
+      updateData.confirmedStaffName = staffName;
+    } else if (status === OrderStatus.DELIVERED) {
+      updateData.deliveredAt = new Date();
+    }
 
     // Handle reject reason
     if (status === OrderStatus.CANCELLED && rejectReason) {

@@ -4,6 +4,19 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { ArrowLeft, MapPin, Home, Building, Navigation, Coffee } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const MapPicker = dynamic(() => import('@/components/maps/MapPicker'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: 320, width: '100%', background: '#EAE5DF', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ fontSize: 13, color: '#9E7B6D', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ width: 14, height: 14, border: '2px solid rgba(93,64,55,0.3)', borderTopColor: '#5D4037', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        Loading interactive map…
+      </div>
+    </div>
+  ),
+});
 
 const LABEL_PRESETS = [
   { icon: Home,       label: 'Home'   },
@@ -34,6 +47,7 @@ export default function NewAddressPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
+  const [isAllowed, setIsAllowed] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -221,27 +235,22 @@ export default function NewAddressPage() {
                 <StyledInput id="pincode" name="pincode" type="text" value={formData.pincode} onChange={handleChange} placeholder="6-digit pincode" maxLength={6} />
               </div>
 
-              {/* Coordinates */}
-              <div style={{ background: 'linear-gradient(135deg,rgba(181,122,60,0.06),rgba(212,175,55,0.04))', borderRadius: 18, padding: '18px 20px', marginBottom: 20, border: '1.5px solid rgba(181,122,60,0.18)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(181,122,60,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <MapPin size={14} color="#B57A3C" />
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#B57A3C', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Location Coordinates (optional)</span>
-                </div>
-                <p style={{ fontSize: 12.5, color: '#9E7B6D', marginBottom: 14, lineHeight: 1.55, background: 'rgba(232,220,203,0.3)', padding: '8px 12px', borderRadius: 9 }}>
-                  Providing coordinates enables accurate delivery zone detection
-                </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <FieldLabel>Latitude</FieldLabel>
-                    <StyledInput id="latitude" name="latitude" type="number" value={formData.latitude} onChange={handleChange} placeholder="19.0760" />
-                  </div>
-                  <div>
-                    <FieldLabel>Longitude</FieldLabel>
-                    <StyledInput id="longitude" name="longitude" type="number" value={formData.longitude} onChange={handleChange} placeholder="72.8777" />
-                  </div>
-                </div>
+              {/* Coordinates Map Picker */}
+              <div style={{ marginBottom: 24 }}>
+                <FieldLabel>Select Location on Map *</FieldLabel>
+                <MapPicker
+                  latitude={formData.latitude ? parseFloat(formData.latitude) : null}
+                  longitude={formData.longitude ? parseFloat(formData.longitude) : null}
+                  onChange={(lat, lng, addressLine) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      latitude: lat.toString(),
+                      longitude: lng.toString(),
+                      ...(addressLine && { addressLine }),
+                    }));
+                  }}
+                  onAllowedChange={(allowed) => setIsAllowed(allowed)}
+                />
               </div>
             </>
           )}
@@ -278,19 +287,19 @@ export default function NewAddressPage() {
           )}
 
           <button
-            type="submit" disabled={loading}
+            type="submit" disabled={loading || (!isSociety && !isAllowed)}
             style={{
               width: '100%', padding: '16px 24px', borderRadius: 16,
-              background: loading ? 'rgba(93,64,55,0.3)' : 'linear-gradient(135deg,#2B1810,#5D4037)',
+              background: (loading || (!isSociety && !isAllowed)) ? 'rgba(93,64,55,0.3)' : 'linear-gradient(135deg,#2B1810,#5D4037)',
               color: '#FAF8F5', fontSize: 15, fontWeight: 700, border: 'none',
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: (loading || (!isSociety && !isAllowed)) ? 'not-allowed' : 'pointer',
               fontFamily: '"Playfair Display",serif',
               transition: 'all 0.25s',
-              boxShadow: loading ? 'none' : '0 6px 24px rgba(43,24,16,0.3)',
+              boxShadow: (loading || (!isSociety && !isAllowed)) ? 'none' : '0 6px 24px rgba(43,24,16,0.3)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
-            onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; } }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
+            onMouseEnter={e => { if (!loading && (isSociety || isAllowed)) { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; } }}
+            onMouseLeave={e => { if (!loading && (isSociety || isAllowed)) { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; } }}
           >
             {loading ? (
               <><div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#FAF8F5', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> Saving…</>

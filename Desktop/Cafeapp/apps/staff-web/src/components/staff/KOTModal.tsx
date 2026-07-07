@@ -5,7 +5,8 @@
  * A5/thermal-optimised kitchen order ticket with QR code.
  * Print button triggers window.print() with print-only CSS that hides all UI chrome.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '@/lib/api';
 
 interface KOTData {
@@ -41,20 +42,25 @@ export function KOTModal({ orderId, orderNumber, onClose }: Props) {
   const [kot, setKot] = useState<KOTData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch on mount
-  useState(() => {
+  useEffect(() => {
     api.get(`/orders/${orderId}/kot`)
       .then((r) => { setKot(r.data); setLoading(false); })
       .catch(() => { setError('Could not load KOT data.'); setLoading(false); });
-  });
+  }, [orderId]);
 
   const handlePrint = () => window.print();
 
-  return (
-    <>
-      {/* Modal backdrop — hidden when printing */}
-      <div className="kot-backdrop" style={{
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="kot-backdrop" style={{
         position: 'fixed', inset: 0, zIndex: 9000,
         background: 'rgba(0,0,0,0.55)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -169,8 +175,8 @@ export function KOTModal({ orderId, orderNumber, onClose }: Props) {
             )}
           </div>
         </div>
-      </div>
-    </>
+      </div>,
+    document.body
   );
 }
 

@@ -4,14 +4,14 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
-import { Mail, ArrowRight, Coffee, Shield, Star } from 'lucide-react';
+import { Phone, ArrowRight, Coffee, Shield, Star } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((state) => state.setAuth);
 
-  const [step, setStep] = useState<'email' | 'otp'>('email');
-  const [email, setEmail] = useState('');
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [phone, setPhone] = useState('+91');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,7 +21,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await api.post('/auth/send-otp', { email: email.toLowerCase().trim() });
+      await api.post('/auth/send-otp', { phone: phone.trim() });
       setStep('otp');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to send OTP');
@@ -33,15 +33,14 @@ export default function LoginPage() {
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    // Strip any spaces / non-digits the browser may inject (letterSpacing artefacts)
     const cleanOtp = otp.replace(/\D/g, '').trim();
     if (cleanOtp.length !== 6) {
-      setError('Please enter the 6-digit code from your email.');
+      setError('Please enter the 6-digit code sent to WhatsApp.');
       return;
     }
     setLoading(true);
     try {
-      const response = await api.post('/auth/verify-otp', { email: email.toLowerCase().trim(), code: cleanOtp });
+      const response = await api.post('/auth/verify-otp', { phone: phone.trim(), code: cleanOtp });
       const { user, accessToken, refreshToken } = response.data;
       setAuth(user, accessToken, refreshToken);
       router.push('/');
@@ -135,12 +134,12 @@ export default function LoginPage() {
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:40 }}>
             <div style={{
               width:34, height:34, borderRadius:10,
-              background: step === 'email' ? 'linear-gradient(135deg,#2B1810,#5D4037)' : 'rgba(79,122,84,0.15)',
+              background: step === 'phone' ? 'linear-gradient(135deg,#2B1810,#5D4037)' : 'rgba(79,122,84,0.15)',
               display:'flex', alignItems:'center', justifyContent:'center',
               transition:'all 0.3s cubic-bezier(.34,1.56,.64,1)',
-              boxShadow: step === 'email' ? '0 3px 12px rgba(43,24,16,0.25)' : 'none',
+              boxShadow: step === 'phone' ? '0 3px 12px rgba(43,24,16,0.25)' : 'none',
             }}>
-              <Mail size={14} color={step === 'email' ? '#FAF8F5' : '#4F7A54'} />
+              <Phone size={14} color={step === 'phone' ? '#FAF8F5' : '#4F7A54'} />
             </div>
             <div style={{ flex:1, height:2, background:'rgba(93,64,55,0.15)', borderRadius:2, overflow:'hidden' }}>
               <div style={{ height:'100%', width: step === 'otp' ? '100%' : '0%', background:'linear-gradient(90deg,#B57A3C,#D4AF37)', transition:'width 0.5s ease', borderRadius:2 }}/>
@@ -157,29 +156,29 @@ export default function LoginPage() {
           </div>
 
           <h1 style={{ fontFamily:'"Playfair Display",serif', fontSize:'clamp(26px,3.5vw,34px)', fontWeight:700, color:'#2B1810', marginBottom:8, letterSpacing:'-0.025em' }}>
-            {step === 'email' ? 'Welcome back.' : 'Verify your email.'}
+            {step === 'phone' ? 'Welcome back.' : 'Verify your phone.'}
           </h1>
           <p style={{ fontSize:14, color:'#9E7B6D', marginBottom:36, lineHeight:1.65 }}>
-            {step === 'email'
-              ? "Enter your email and we'll send you a one-time code."
-              : `We've sent a 6-digit code to ${email}`}
+            {step === 'phone'
+              ? "Enter your phone number and we'll send you a WhatsApp verification code."
+              : `We've sent a 6-digit code to ${phone}`}
           </p>
 
-          {step === 'email' ? (
+          {step === 'phone' ? (
             <form onSubmit={handleSendOtp}>
               <div style={{ marginBottom:22 }}>
                 <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#5D4037', marginBottom:8, letterSpacing:'0.07em', textTransform:'uppercase' }}>
-                  Email address
+                  Phone number
                 </label>
                 <div style={{ display:'flex', alignItems:'center', gap:12, background:'#FFFFFF', border:'1.5px solid rgba(93,64,55,0.18)', borderRadius:14, padding:'13px 18px', transition:'all 0.2s' }}
                   onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor='#B57A3C'; (e.currentTarget as HTMLElement).style.boxShadow='0 0 0 3px rgba(181,122,60,0.1)'; }}
                   onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor='rgba(93,64,55,0.18)'; (e.currentTarget as HTMLElement).style.boxShadow='none'; }}
                 >
-                  <Mail size={16} color="#B0998B" />
+                  <Phone size={16} color="#B0998B" />
                   <input
-                    id="email" type="email" value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="your@email.com"
+                    id="phone" type="tel" value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder="+919876543210"
                     required
                     style={{ background:'transparent', border:'none', outline:'none', fontSize:14, color:'#2B1810', flex:1, fontFamily:'Inter,sans-serif' }}
                   />
@@ -256,12 +255,12 @@ export default function LoginPage() {
 
                 <button
                   type="button"
-                  onClick={() => { setStep('email'); setOtp(''); setError(''); }}
+                  onClick={() => { setStep('phone'); setOtp(''); setError(''); }}
                   style={{ width:'100%', padding:'12px', borderRadius:14, background:'transparent', border:'1.5px solid rgba(93,64,55,0.15)', color:'#5D4037', fontSize:13.5, fontWeight:500, cursor:'pointer', transition:'all 0.2s', fontFamily:'Inter,sans-serif' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background='rgba(93,64,55,0.06)'; (e.currentTarget as HTMLElement).style.borderColor='rgba(93,64,55,0.3)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background='transparent'; (e.currentTarget as HTMLElement).style.borderColor='rgba(93,64,55,0.15)'; }}
                 >
-                  Use a different email
+                  Use a different phone number
                 </button>
               </div>
             </form>

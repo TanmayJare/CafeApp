@@ -19,7 +19,12 @@ class OrderItemDto {
 
 export class CreateOrderDto {
   @IsString()
-  addressId: string;
+  @IsOptional()
+  addressId?: string;
+
+  @IsString()
+  @IsOptional()
+  tableId?: string;
 
   @IsEnum(PaymentMethod)
   paymentMethod: PaymentMethod;

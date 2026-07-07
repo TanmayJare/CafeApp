@@ -95,7 +95,7 @@ export class InvoicesController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   async scanKOT(@Body() body: { token: string; riderId?: string }) {
-    const { token } = body;
+    const { token, riderId } = body;
 
     let orderId: string;
     try {
@@ -112,18 +112,31 @@ export class InvoicesController {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new BadRequestException('Order not found');
 
-    // Must be READY to transition
-    if (order.status !== OrderStatus.READY) {
+    // Must be READY or ASSIGNED to transition
+    if (order.status !== OrderStatus.READY && order.status !== OrderStatus.ASSIGNED) {
       throw new BadRequestException({
-        error: 'Order is not in READY status',
+        error: 'Order is not in READY or ASSIGNED status',
         currentStatus: order.status,
       });
+    }
+
+    let riderName: string | null = null;
+    if (riderId) {
+      const riderUser = await this.prisma.user.findUnique({ where: { id: riderId } });
+      if (riderUser) {
+        riderName = riderUser.name;
+      }
     }
 
     // Transition to OUT_FOR_DELIVERY
     const updated = await this.prisma.order.update({
       where: { id: orderId },
-      data: { status: OrderStatus.OUT_FOR_DELIVERY },
+      data: {
+        status: OrderStatus.OUT_FOR_DELIVERY,
+        riderId: riderId || undefined,
+        pickedUpAt: new Date(),
+        pickedUpRiderName: riderName,
+      },
       include: {
         items: { include: { menuItem: true } },
         address: true,

@@ -19,11 +19,31 @@ interface Address {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, logout, token, refreshToken, setAuth } = useAuthStore();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [orderCount, setOrderCount] = useState(0);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
+
+  const [editingName, setEditingName] = useState(false);
+  const [nameVal, setNameVal] = useState(user?.name || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleUpdateName = async () => {
+    if (!nameVal.trim()) return;
+    setSaving(true);
+    try {
+      const res = await api.patch('/auth/me', { name: nameVal.trim() });
+      if (user && token) {
+        setAuth({ ...user, name: res.data.name }, token, refreshToken || undefined);
+      }
+      setEditingName(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -83,9 +103,42 @@ export default function ProfilePage() {
             <span className="text-white text-xl font-bold">{getInitials()}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="font-bold text-gray-900 text-lg truncate">
-              {user?.name || 'Guest'}
-            </h2>
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={nameVal}
+                  onChange={(e) => setNameVal(e.target.value)}
+                  className="border rounded px-2 py-1 text-sm text-gray-900 w-full"
+                  placeholder="Enter your name"
+                />
+                <button
+                  onClick={handleUpdateName}
+                  disabled={saving}
+                  className="bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setEditingName(false)}
+                  className="text-gray-500 text-xs px-2 py-1.5"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-gray-900 text-lg truncate">
+                  {user?.name || 'Guest'}
+                </h2>
+                <button
+                  onClick={() => { setNameVal(user?.name || ''); setEditingName(true); }}
+                  className="text-xs text-blue-600 font-semibold"
+                >
+                  {user?.name ? 'Edit' : 'Set Name'}
+                </button>
+              </div>
+            )}
             <p className="text-sm text-gray-500 truncate">{user?.email}</p>
             <span className="inline-block mt-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
               {user?.role}

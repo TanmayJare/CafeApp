@@ -111,20 +111,15 @@ async function runAllTests() {
   // ─── AUTH PREPARATION ──────────────────────────────────────────────────────
   try {
     // 1. Authenticate Customer
-    const customerEmail = 'customer@test.com';
-    const sendCustRes = await apiCall('/auth/send-otp', 'POST', { email: customerEmail });
+    const customerPhone = '+919876543213';
+    const sendCustRes = await apiCall('/auth/send-otp', 'POST', { phone: customerPhone });
     if (sendCustRes.status !== 200) {
       throw new Error(`Failed to send customer OTP: status ${sendCustRes.status}`);
     }
+    const custOtpCode = sendCustRes.data.code;
+    if (!custOtpCode) throw new Error('Customer OTP code not returned in send-otp response');
 
-    // Fetch OTP code from DB
-    const custOtp = await prisma.otpVerification.findFirst({
-      where: { email: customerEmail },
-      orderBy: { createdAt: 'desc' }
-    });
-    if (!custOtp) throw new Error('Customer OTP record not found in DB');
-
-    const custAuth = await apiCall('/auth/verify-otp', 'POST', { email: customerEmail, code: custOtp.code });
+    const custAuth = await apiCall('/auth/verify-otp', 'POST', { phone: customerPhone, code: custOtpCode });
     if (custAuth.status !== 200 || !custAuth.data.accessToken) {
       throw new Error(`Failed to verify customer OTP: ${JSON.stringify(custAuth.data)}`);
     }
@@ -138,20 +133,15 @@ async function runAllTests() {
     console.log(`🧹 Cleaned customer orders and addresses`);
 
     // 2. Authenticate Staff
-    const staffEmail = 'tanmayjare13@gmail.com';
-    const sendStaffRes = await apiCall('/auth/send-otp', 'POST', { email: staffEmail });
+    const staffPhone = '+919876543210';
+    const sendStaffRes = await apiCall('/auth/send-otp', 'POST', { phone: staffPhone });
     if (sendStaffRes.status !== 200) {
       throw new Error(`Failed to send staff OTP: status ${sendStaffRes.status}`);
     }
+    const staffOtpCode = sendStaffRes.data.code;
+    if (!staffOtpCode) throw new Error('Staff OTP code not returned in send-otp response');
 
-    // Fetch OTP code from DB
-    const staffOtp = await prisma.otpVerification.findFirst({
-      where: { email: staffEmail },
-      orderBy: { createdAt: 'desc' }
-    });
-    if (!staffOtp) throw new Error('Staff OTP record not found in DB');
-
-    const staffAuth = await apiCall('/auth/verify-otp', 'POST', { email: staffEmail, code: staffOtp.code });
+    const staffAuth = await apiCall('/auth/verify-otp', 'POST', { phone: staffPhone, code: staffOtpCode });
     if (staffAuth.status !== 200 || !staffAuth.data.accessToken) {
       throw new Error(`Failed to verify staff OTP: ${JSON.stringify(staffAuth.data)}`);
     }
@@ -160,20 +150,15 @@ async function runAllTests() {
     console.log(`🔑 Authenticated staff (ID: ${staffId})`);
 
     // 3. Authenticate Admin (SUPER_ADMIN)
-    const adminEmail = 'admin@cafe.test';
-    const sendAdminRes = await apiCall('/auth/send-otp', 'POST', { email: adminEmail });
+    const adminPhone = '+919876543212';
+    const sendAdminRes = await apiCall('/auth/send-otp', 'POST', { phone: adminPhone });
     if (sendAdminRes.status !== 200) {
       throw new Error(`Failed to send admin OTP: status ${sendAdminRes.status}`);
     }
+    const adminOtpCode = sendAdminRes.data.code;
+    if (!adminOtpCode) throw new Error('Admin OTP code not returned in send-otp response');
 
-    // Fetch OTP code from DB
-    const adminOtp = await prisma.otpVerification.findFirst({
-      where: { email: adminEmail },
-      orderBy: { createdAt: 'desc' }
-    });
-    if (!adminOtp) throw new Error('Admin OTP record not found in DB');
-
-    const adminAuth = await apiCall('/auth/verify-otp', 'POST', { email: adminEmail, code: adminOtp.code });
+    const adminAuth = await apiCall('/auth/verify-otp', 'POST', { phone: adminPhone, code: adminOtpCode });
     if (adminAuth.status !== 200 || !adminAuth.data.accessToken) {
       throw new Error(`Failed to verify admin OTP: ${JSON.stringify(adminAuth.data)}`);
     }
@@ -211,6 +196,7 @@ async function runAllTests() {
   try {
     customerSocket = await connectSocket(customerToken);
     staffSocket = await connectSocket(staffToken);
+    await new Promise((resolve) => setTimeout(resolve, 800));
     logTest('Phase 34', 'Socket connections established', 'PASS');
   } catch (err: any) {
     logTest('Phase 34', 'Socket connections established', 'FAIL', err.message);

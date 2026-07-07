@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "build:api": "turbo run build --filter=api",
+    "start:api": "pnpm --filter api run start:prod",
     "lint": "turbo run lint",
     "clean": "turbo run clean",
     "type-check": "turbo run type-check"

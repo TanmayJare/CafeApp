@@ -10,6 +10,7 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
 import api from '../lib/api';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -41,6 +42,56 @@ export default function ActiveScreen() {
     },
     refetchInterval: 30_000,
   });
+
+  // Live Location Reporting for order tracking (38D.3)
+  useEffect(() => {
+    let subscription: { remove: () => void } | null = null;
+    let isTracking = true;
+
+    const startTracking = async () => {
+      if (!activeOrder || activeOrder.status !== 'OUT_FOR_DELIVERY') return;
+
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.warn('Rider location permission denied');
+          return;
+        }
+
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 4000,
+            distanceInterval: 10,
+          },
+          async (location) => {
+            if (!isTracking) return;
+            try {
+              await api.post('/riders/location', {
+                orderId: activeOrder.id,
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                speed: location.coords.speed ?? 0,
+              });
+            } catch (err) {
+              console.error('Failed to post rider location update:', err);
+            }
+          }
+        );
+      } catch (err) {
+        console.error('Error starting Location Watcher:', err);
+      }
+    };
+
+    startTracking();
+
+    return () => {
+      isTracking = false;
+      if (subscription) {
+        subscription.remove();
+      }
+    };
+  }, [activeOrder?.id, activeOrder?.status]);
 
   const handleScan = async (data: string) => {
     if (scanDone) return;

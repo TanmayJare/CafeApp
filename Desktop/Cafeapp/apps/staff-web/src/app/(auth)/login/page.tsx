@@ -23,8 +23,8 @@ export default function LoginPage() {
     try {
       const response = await authApi.staffLogin(email, password);
       const { accessToken, refreshToken, user } = response.data;
-      if (user.role !== 'STAFF' && user.role !== 'SUPER_ADMIN') {
-        setError('Access denied. Staff accounts only.');
+      if (user.role !== 'STAFF' && user.role !== 'SUPER_ADMIN' && user.role !== 'RIDER') {
+        setError('Access denied. Staff or rider accounts only.');
         return;
       }
       setAuth(user, accessToken, refreshToken);

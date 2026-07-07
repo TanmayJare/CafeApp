@@ -95,7 +95,7 @@ export default function MenuItemDetailPage() {
       customizations: customizations.join(', '),
     });
     setAdded(true);
-    setTimeout(() => router.push('/cart'), 600);
+    setTimeout(() => router.push('/menu'), 600);
   };
 
   const catMeta = item ? (CATEGORY_META[item.category.name] ?? CATEGORY_META.default) : CATEGORY_META.default;

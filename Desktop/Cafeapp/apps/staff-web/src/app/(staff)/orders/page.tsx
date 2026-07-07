@@ -21,7 +21,7 @@ interface OrderItem {
 interface Order {
   id:           string;
   orderNumber:  string;
-  status:       'PLACED' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
+  status:       'PLACED' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
   grandTotal:   number;
   subtotal:     number;
   taxAmount:    number;
@@ -30,6 +30,18 @@ interface Order {
   paymentMethod: string;
   createdAt:    string;
   items:        OrderItem[];
+  pickedUpAt?:  string | null;
+  pickedUpRiderName?: string | null;
+  acceptedAt?:  string | null;
+  acceptedStaffName?: string | null;
+  confirmedAt?: string | null;
+  confirmedStaffName?: string | null;
+  deliveredAt?: string | null;
+  rider?: {
+    id: string;
+    name: string | null;
+    phone: string | null;
+  } | null;
   address: {
     label:       string | null;
     addressLine: string | null;
@@ -53,8 +65,10 @@ const STATUS: Record<Order['status'], { bg: string; color: string; label: string
   ACCEPTED:  { bg: 'rgba(139,92,246,0.1)',  color: '#7C3AED', label: 'Accepted',   dot: '#8B5CF6' },
   PREPARING: { bg: 'rgba(245,158,11,0.1)',  color: '#B45309', label: 'Preparing',  dot: '#F59E0B' },
   READY:     { bg: 'rgba(79,122,84,0.1)',   color: '#4F7A54', label: 'Ready',      dot: '#6DBF7E' },
-  DELIVERED: { bg: 'rgba(93,64,55,0.1)',    color: '#9E7B6D', label: 'Delivered',  dot: '#B0998B' },
-  CANCELLED: { bg: 'rgba(169,68,66,0.1)',   color: '#A94442', label: 'Cancelled',  dot: '#A94442' },
+  ASSIGNED:  { bg: 'rgba(14,165,233,0.1)',  color: '#0284C7', label: 'Assigned',   dot: '#38BDF8' },
+  OUT_FOR_DELIVERY: { bg: 'rgba(99,102,241,0.1)', color: '#4F46E5', label: 'On Way', dot: '#6366F1' },
+  DELIVERED: { bg: 'rgba(34,197,94,0.1)',   color: '#16A34A', label: 'Delivered',  dot: '#22C55E' },
+  CANCELLED: { bg: 'rgba(239,68,66,0.1)',   color: '#A94442', label: 'Cancelled',  dot: '#EF4444' },
 };
 
 const STATUS_FLOW: Partial<Record<Order['status'], Order['status']>> = {
@@ -238,11 +252,34 @@ export default function OrdersPage() {
                   {/* Delivery info */}
                   <div>
                     <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B57A3C', marginBottom: 12 }}>Delivery Details</div>
-                    {[
+                     {[
                       { label: 'Customer', val: order.customer?.name || order.customer?.email || 'N/A' },
                       ...(order.customer?.phone ? [{ label: 'Phone', val: order.customer.phone }] : []),
                       { label: 'Address',  val: formatAddress(order.address) },
                       { label: 'Payment',  val: order.paymentMethod },
+                      ...(order.acceptedStaffName
+                        ? [{ label: 'Accepted By', val: `${order.acceptedStaffName} at ${new Date(order.acceptedAt!).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} on ${new Date(order.acceptedAt!).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}` }]
+                        : []),
+                      ...(order.confirmedStaffName
+                        ? [{ label: 'Prepared By', val: `${order.confirmedStaffName} at ${new Date(order.confirmedAt!).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} on ${new Date(order.confirmedAt!).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}` }]
+                        : []),
+                      ...(order.pickedUpRiderName || order.rider?.name
+                        ? [{ label: 'Rider', val: `${order.pickedUpRiderName || order.rider?.name || 'N/A'}${order.pickedUpAt ? ` (Picked up at ${new Date(order.pickedUpAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} on ${new Date(order.pickedUpAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })})` : ''}` }]
+                        : []),
+                      ...(order.deliveredAt
+                        ? [
+                            {
+                              label: 'Delivered At',
+                              val: `${new Date(order.deliveredAt).toLocaleTimeString('en-IN', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })} on ${new Date(order.deliveredAt).toLocaleDateString('en-IN', {
+                                day: '2-digit',
+                                month: 'short',
+                              })}`,
+                            },
+                          ]
+                        : []),
                     ].map(({ label, val }) => (
                       <div key={label} style={{ marginBottom: 8 }}>
                         <div style={{ fontSize: 11, color: '#B0998B', marginBottom: 2 }}>{label}</div>

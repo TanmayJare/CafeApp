@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 import { ZoneType } from '@cafeconnect/database';
+import { MapsService } from '../maps/maps.service';
 
 @Injectable()
 export class AddressService {
@@ -12,7 +13,10 @@ export class AddressService {
   private readonly PRIMARY_ZONE_RADIUS = 3;   // km
   private readonly SECONDARY_ZONE_RADIUS = 7; // km
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mapsService: MapsService,
+  ) {}
 
   async getSocietyOptions() {
     return this.prisma.societyTower.findMany({ orderBy: { name: 'asc' } });
@@ -50,14 +54,19 @@ export class AddressService {
   async create(userId: string, dto: CreateAddressDto) {
     const { latitude, longitude, isDefault, ...rest } = dto;
 
+    const cafeConfig = await this.prisma.cafeConfig.findUnique({ where: { id: 'default' } });
+    const cafeLat = cafeConfig?.latitude ?? this.CAFE_LAT;
+    const cafeLng = cafeConfig?.longitude ?? this.CAFE_LNG;
+    const maxRadius = cafeConfig?.deliveryRadiusKm ?? this.SECONDARY_ZONE_RADIUS;
+
     if (dto.type === 'EXTERNAL') {
       if (!latitude || !longitude) {
         throw new BadRequestException('Latitude and longitude are required for external addresses');
       }
-      const distance = this.calculateDistance(this.CAFE_LAT, this.CAFE_LNG, latitude, longitude);
-      if (!this.determineZone(distance)) {
+      const route = await this.mapsService.getRoute(cafeLat, cafeLng, latitude, longitude);
+      if (route.distanceKm > maxRadius) {
         throw new BadRequestException(
-          `Address is outside delivery range. Maximum distance is ${this.SECONDARY_ZONE_RADIUS}km`,
+          `Address is outside delivery range. Maximum distance is ${maxRadius}km`,
         );
       }
     }
@@ -105,6 +114,11 @@ export class AddressService {
     const existing = await this.findOne(id, userId);
     const { latitude, longitude, type, isDefault, ...rest } = dto;
 
+    const cafeConfig = await this.prisma.cafeConfig.findUnique({ where: { id: 'default' } });
+    const cafeLat = cafeConfig?.latitude ?? this.CAFE_LAT;
+    const cafeLng = cafeConfig?.longitude ?? this.CAFE_LNG;
+    const maxRadius = cafeConfig?.deliveryRadiusKm ?? this.SECONDARY_ZONE_RADIUS;
+
     const finalType = type ?? existing.type;
     if (finalType === 'EXTERNAL') {
       const finalLat = latitude ?? existing.latitude;
@@ -112,10 +126,10 @@ export class AddressService {
       if (!finalLat || !finalLng) {
         throw new BadRequestException('Latitude and longitude are required for external addresses');
       }
-      const distance = this.calculateDistance(this.CAFE_LAT, this.CAFE_LNG, finalLat, finalLng);
-      if (!this.determineZone(distance)) {
+      const route = await this.mapsService.getRoute(cafeLat, cafeLng, finalLat, finalLng);
+      if (route.distanceKm > maxRadius) {
         throw new BadRequestException(
-          `Address is outside delivery range. Maximum distance is ${this.SECONDARY_ZONE_RADIUS}km`,
+          `Address is outside delivery range. Maximum distance is ${maxRadius}km`,
         );
       }
     }
@@ -178,9 +192,17 @@ export class AddressService {
     const cafeLng = cafeConfig?.longitude ?? this.CAFE_LNG;
     const primaryFee = cafeConfig?.primaryDeliveryFee ?? 20;
     const secondaryFee = cafeConfig?.secondaryDeliveryFee ?? 40;
+    const maxRadius = cafeConfig?.deliveryRadiusKm ?? this.SECONDARY_ZONE_RADIUS;
 
-    const distFromCafe = this.calculateDistance(cafeLat, cafeLng, lat, lng);
-    const zone = this.determineZone(distFromCafe);
+    // Get driving route coordinates, road distance, and duration
+    const route = await this.mapsService.getRoute(cafeLat, cafeLng, lat, lng);
+    const distFromCafe = route.distanceKm;
+
+    // Allowed if route distance is within deliveryRadiusKm
+    const allowed = distFromCafe <= maxRadius;
+    const zone = allowed
+      ? (distFromCafe <= this.PRIMARY_ZONE_RADIUS ? ZoneType.PRIMARY : ZoneType.SECONDARY)
+      : null;
 
     const zoneType = zone ?? 'OUT_OF_ZONE';
     const deliveryFee =
@@ -192,7 +214,6 @@ export class AddressService {
     const towers = await this.prisma.societyTower.findMany();
     let societyMatch: any = null;
     for (const tower of towers) {
-      // SocietyTower doesn't have lat/lng in schema — skip match if not present
       const tLat = (tower as any).latitude;
       const tLng = (tower as any).longitude;
       if (tLat && tLng) {
@@ -207,6 +228,12 @@ export class AddressService {
       deliveryFee,
       estimatedTime,
       societyMatch,
+      allowed,
+      cafeCoords: { lat: cafeLat, lng: cafeLng },
+      deliveryRadiusKm: maxRadius,
+      routeCoordinates: route.coordinates,
+      durationSec: route.durationSec,
+      isFallbackRoute: route.isFallback,
     };
 
     if (userLat !== undefined && userLng !== undefined) {

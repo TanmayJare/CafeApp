@@ -15,13 +15,13 @@ export class AuthController {
   @Post('send-otp')
   @HttpCode(HttpStatus.OK)
   async sendOTP(@Body() dto: SendOtpDto) {
-    return this.authService.sendOTP(dto.email);
+    return this.authService.sendOTP(dto.phone);
   }
 
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   async verifyOTP(@Body() dto: VerifyOtpDto) {
-    return this.authService.verifyOTP(dto.email, dto.code);
+    return this.authService.verifyOTP(dto.phone, dto.code);
   }
 
   // ─── Staff / Admin password login ────────────────────────────────────────

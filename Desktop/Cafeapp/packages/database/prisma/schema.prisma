@@ -51,6 +51,25 @@ enum PaymentMethod {
   CARD
   NET_BANKING
   WALLET
+  CASH
+}
+
+enum TableStatus {
+  FREE
+  OCCUPIED
+  BILLING
+}
+
+enum BillChannel {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+
+enum BillStatus {
+  OPEN
+  PAID
+  VOID
 }
 
 enum PaymentStatus {
@@ -79,10 +98,12 @@ enum ZoneType {
 
 model User {
   id            String    @id @default(cuid())
-  email         String    @unique
-  phone         String?
+  email         String?   @unique
+  phone         String    @unique
+  isVerified    Boolean   @default(false)
   name          String?
   passwordHash  String?   // For staff/admin accounts only; null for OTP-only customers
+  managerPinHash String?   // Hashed with bcrypt, same as OTP codes. Never exposed in any API response.
   role          UserRole  @default(CUSTOMER)
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
@@ -96,17 +117,19 @@ model User {
   notifications    Notification[]
 
   @@index([email])
+  @@index([phone])
   @@index([role])
 }
 
 model OtpVerification {
   id        String   @id @default(cuid())
-  email     String
-  code      String
+  phone     String
+  codeHash  String
   expiresAt DateTime
+  attempts  Int      @default(0)
   createdAt DateTime @default(now())
 
-  @@index([email, code])
+  @@index([phone])
   @@index([expiresAt])
 }
 
@@ -199,6 +222,7 @@ model MenuItem {
   category     Category         @relation(fields: [categoryId], references: [id])
   cartItems    CartItem[]
   orderItems   OrderItem[]
+  billItems    BillItem[]
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
@@ -308,9 +332,12 @@ model Order {
   orderNumber     String      @unique  // CC-20260617-001
   customerId      String
   riderId         String?
-  addressId       String
+  addressId       String?
+  tableId         String?
+  billId          String?
   status          OrderStatus @default(PLACED)
   rejectReason    RejectReason?
+  bill            Bill?       @relation(fields: [billId], references: [id])
 
   subtotal        Float
   taxAmount       Float
@@ -325,15 +352,22 @@ model Order {
 
   customer        User        @relation("CustomerOrders", fields: [customerId], references: [id])
   rider           User?       @relation("RiderOrders", fields: [riderId], references: [id])
-  address         Address     @relation(fields: [addressId], references: [id])
+  address         Address?    @relation(fields: [addressId], references: [id])
+  table           Table?      @relation(fields: [tableId], references: [id])
   items           OrderItem[]
   statusHistory   OrderStatusHistory[]
   payment         Payment?
   riderLocations  RiderLocation[]
 
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  deliveredAt     DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  deliveredAt       DateTime?
+  pickedUpAt        DateTime?
+  pickedUpRiderName String?
+  acceptedAt         DateTime?
+  acceptedStaffName   String?
+  confirmedAt        DateTime?
+  confirmedStaffName String?
 
   @@index([status, createdAt])
   @@index([customerId])
@@ -418,4 +452,83 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, isRead])
+}
+
+// ─── Billing Panel Models ───────────────────────────────────
+
+model Table {
+  id       String      @id @default(cuid())
+  number   String      @unique // e.g. "T-12"
+  section  String?     // e.g. "Patio", "Indoor"
+  status   TableStatus @default(FREE)
+  bills    Bill[]
+  orders   Order[]
+}
+
+model BusinessProfile {
+  id             String  @id @default("default")
+  legalName      String
+  gstin          String
+  address        String
+  hsnCode        String   @default("996331") // restaurant services
+  cgstRate       Float    @default(2.5)      // e.g. 2.5%
+  sgstRate       Float    @default(2.5)      // e.g. 2.5%
+  invoicePrefix  String   @default("INV")
+  discountLimit  Float    @default(100.0)    // ₹100 discount limit for cashiers
+}
+
+model Bill {
+  id             String        @id @default(cuid())
+  billNumber     String?       @unique // e.g. "INV/25-26/00001", optional until generating/finalizing
+  financialYear  String?       // "25-26", optional until generating/finalizing
+  table          Table?        @relation(fields: [tableId], references: [id])
+  tableId        String?
+  channel        BillChannel
+  items          BillItem[]
+  subtotal       Float         @default(0)
+  discountAmount Float         @default(0)
+  discountReason String?
+  discountApprovedBy String?   // User ID of manager who approved it
+  taxableAmount  Float         @default(0)
+  cgstAmount     Float         @default(0)
+  sgstAmount     Float         @default(0)
+  roundOff       Float         @default(0)
+  grandTotal     Float         @default(0)
+  status         BillStatus    @default(OPEN)
+  voidReason     String?
+  voidApprovedBy String?       // User ID of manager who approved void
+  createdBy      String?       // Cashier user ID, optional during creation
+  createdAt      DateTime      @default(now())
+  closedAt       DateTime?
+  payments       BillPayment[]
+  orders         Order[]
+}
+
+model BillItem {
+  id         String   @id @default(cuid())
+  billId     String
+  menuItemId String
+  name       String   // snapshot at billing time
+  unitPrice  Float
+  quantity   Int
+  lineTotal  Float
+  bill       Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([billId])
+}
+
+model BillPayment {
+  id        String        @id @default(cuid())
+  bill      Bill          @relation(fields: [billId], references: [id], onDelete: Cascade)
+  billId    String
+  method    PaymentMethod
+  amount    Float
+  reference String?      // UPI txn id / Card transaction reference / null for cash
+  createdAt DateTime     @default(now())
+}
+
+model InvoiceCounter {
+  financialYear String @id // e.g. "25-26"
+  count         Int    @default(0)
 }

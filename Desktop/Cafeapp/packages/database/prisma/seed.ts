@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -11,8 +12,13 @@ async function main() {
   await prisma.riderProfile.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.orderStatusHistory.deleteMany();
+  await prisma.billPayment.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
+  await prisma.bill.deleteMany();
+  await prisma.table.deleteMany();
+  await prisma.businessProfile.deleteMany();
+  await prisma.invoiceCounter.deleteMany();
   await prisma.cartItemOption.deleteMany();
   await prisma.cartItem.deleteMany();
   await prisma.cart.deleteMany();
@@ -30,12 +36,17 @@ async function main() {
 
   // 1. Create Users
   console.log('Creating users...');
+  const managerPinHash = await bcrypt.hash('1234', 10);
+  const passwordHash = await bcrypt.hash('cafestaff2024', 12);
+
   const staff = await prisma.user.create({
     data: {
       email: 'tanmayjare13@gmail.com',
       name: 'Tanmay (Staff)',
       phone: '+919876543210',
       role: 'STAFF',
+      passwordHash,
+      managerPinHash,
     },
   });
 
@@ -45,6 +56,7 @@ async function main() {
       name: 'Rider User',
       phone: '+919876543211',
       role: 'RIDER',
+      passwordHash,
     },
   });
 
@@ -54,6 +66,8 @@ async function main() {
       name: 'Admin User',
       phone: '+919876543212',
       role: 'SUPER_ADMIN',
+      passwordHash,
+      managerPinHash,
     },
   });
 
@@ -398,12 +412,18 @@ async function main() {
         title: "Today's Special: Paneer Tikka Sandwich",
         description: 'Grilled paneer tikka sandwich with mint chutney',
         price: 140,
+        discountedPrice: 140,
+        availableFrom: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        availableUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         availableOn: today,
       },
       {
         title: 'Chef Special: Chocolate Frappe',
         description: 'Rich chocolate frappe with whipped cream',
         price: 150,
+        discountedPrice: 150,
+        availableFrom: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        availableUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         availableOn: today,
       },
     ],
@@ -452,13 +472,41 @@ async function main() {
     data: {
       userId: customer.id,
       type: 'SOCIETY',
-      label: 'Home',
+      label: 'HOME',
       isDefault: true,
       societyName: 'Sunshine Residency',
       tower: 'Tower A',
       wing: 'A',
       floor: '5',
       flatNumber: '501',
+    },
+  });
+
+  // 10. Create Tables
+  console.log('Creating tables...');
+  await prisma.table.createMany({
+    data: [
+      { number: 'T-1', section: 'Indoor', status: 'FREE' },
+      { number: 'T-2', section: 'Indoor', status: 'FREE' },
+      { number: 'T-3', section: 'Patio', status: 'FREE' },
+      { number: 'T-4', section: 'Patio', status: 'FREE' },
+      { number: 'T-5', section: 'Rooftop', status: 'FREE' },
+    ],
+  });
+
+  // 11. Create Business Profile
+  console.log('Creating business profile...');
+  await prisma.businessProfile.create({
+    data: {
+      id: 'default',
+      legalName: 'Sunshine Cafe & Bistro Pvt Ltd',
+      gstin: '27AAAAA1111A1Z1',
+      address: 'Shop 5, Sunshine Residency, Main Road, Mumbai - 400001',
+      hsnCode: '996331',
+      cgstRate: 2.5,
+      sgstRate: 2.5,
+      invoicePrefix: 'INV',
+      discountLimit: 100.0,
     },
   });
 

@@ -5,7 +5,20 @@ import { useRouter, useParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
-import { MapPin, Clock, ArrowLeft, CheckCircle, Package, ChefHat, Bike, Home, RefreshCw, Coffee } from 'lucide-react';
+import { MapPin, Clock, ArrowLeft, CheckCircle, Package, ChefHat, Bike, Home, RefreshCw, Coffee, Navigation } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const OrderTrackingMap = dynamic(() => import('@/components/maps/OrderTrackingMap'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: 320, width: '100%', background: '#EAE5DF', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ fontSize: 13, color: '#9E7B6D', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ width: 14, height: 14, border: '2px solid rgba(93,64,55,0.3)', borderTopColor: '#5D4037', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        Loading map…
+      </div>
+    </div>
+  ),
+});
 
 interface OrderItem {
   id: string;
@@ -15,23 +28,42 @@ interface OrderItem {
   menuItem: { id: string; name: string };
 }
 
+interface Address {
+  id: string;
+  latitude: number | null;
+  longitude: number | null;
+  addressLine: string | null;
+  societyName: string | null;
+  tower: string | null;
+  wing: string | null;
+  floor: string | null;
+  flatNumber: string | null;
+  type: 'SOCIETY' | 'EXTERNAL';
+}
+
 interface Order {
   id: string;
   orderNumber: string;
-  status: 'PLACED' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
+  status: 'PLACED' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
   totalAmount: number;
   deliveryAddress: string;
+  address?: Address | null;
   customerPhone: string | null;
   specialInstructions: string | null;
   createdAt: string;
   items: OrderItem[];
+  rider?: {
+    name: string | null;
+    phone: string | null;
+  } | null;
 }
 
 const STATUS_STEPS = [
   { key:'PLACED',    icon:Package,    label:'Order Placed',      sub:"We've received your order",           color:'#B57A3C' },
   { key:'ACCEPTED',  icon:CheckCircle,label:'Accepted',          sub:'Café has accepted your order',        color:'#C9964A' },
   { key:'PREPARING', icon:ChefHat,    label:'Being Prepared',    sub:'Our baristas are crafting your order',color:'#D4AF37' },
-  { key:'READY',     icon:Bike,       label:'Ready for Delivery',sub:'Your order is on its way',             color:'#6DBF7E' },
+  { key:'READY',     icon:Bike,       label:'Ready / Assigned',  sub:'Delivery agent is assigning',         color:'#6DBF7E' },
+  { key:'OUT_FOR_DELIVERY', icon:Navigation, label:'Out for Delivery', sub:'Rider is on the way with your order!', color:'#38BDF8' },
   { key:'DELIVERED', icon:Home,       label:'Delivered',         sub:'Enjoy your order!',                   color:'#4F7A54' },
 ];
 
@@ -58,6 +90,7 @@ export default function OrderTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [riderCoords, setRiderCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated()) { router.push('/login'); return; }
@@ -71,6 +104,11 @@ export default function OrderTrackingPage() {
       newSocket.on('connect', () => newSocket.emit('join-order', orderId));
       newSocket.on('order:status', (data: { orderId: string; status: Order['status'] }) => {
         if (data.orderId === orderId) setOrder(prev => prev ? { ...prev, status: data.status } : null);
+      });
+      newSocket.on('rider:location', (data: { orderId: string; latitude: number; longitude: number }) => {
+        if (data.orderId === orderId) {
+          setRiderCoords({ latitude: data.latitude, longitude: data.longitude });
+        }
       });
       setSocket(newSocket);
       return () => { newSocket.emit('leave-order', orderId); newSocket.close(); };
@@ -97,7 +135,20 @@ export default function OrderTrackingPage() {
   const getCurrentStepIndex = () => {
     if (!order) return 0;
     if (order.status === 'CANCELLED') return -1;
-    return STATUS_STEPS.findIndex(s => s.key === order.status);
+    const statusKey = order.status === 'ASSIGNED' ? 'READY' : order.status;
+    return STATUS_STEPS.findIndex(s => s.key === statusKey);
+  };
+
+  const calculateHaversine = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   };
 
   const getEstimatedTime = () => {
@@ -105,7 +156,20 @@ export default function OrderTrackingPage() {
     if (order.status === 'DELIVERED') return 'Delivered ✓';
     if (order.status === 'CANCELLED') return 'Cancelled';
     if (order.status === 'READY') return 'Ready now';
-    const remaining = (4 - getCurrentStepIndex()) * 5;
+
+    if (riderCoords && order.address?.latitude && order.address?.longitude) {
+      const dist = calculateHaversine(
+        riderCoords.latitude,
+        riderCoords.longitude,
+        order.address.latitude,
+        order.address.longitude
+      );
+      const etaMins = Math.round((dist / 25) * 60);
+      if (etaMins <= 1) return 'Arriving now';
+      return `${etaMins} mins (${dist.toFixed(1)} km away)`;
+    }
+
+    const remaining = (5 - getCurrentStepIndex()) * 5;
     return `${remaining}–${remaining + 5} min`;
   };
 
@@ -329,16 +393,33 @@ export default function OrderTrackingPage() {
               </p>
             </div>
 
-            {/* Map placeholder */}
-            <div style={{
-              background:'linear-gradient(135deg,rgba(79,111,82,0.08),rgba(93,64,55,0.06))',
-              borderRadius:20, border:'1.5px dashed rgba(93,64,55,0.2)',
-              padding:'32px', textAlign:'center', display:'flex', flexDirection:'column', alignItems:'center', gap:10,
-            }}>
-              <div style={{ fontSize:32 }}>🗺️</div>
-              <p style={{ fontFamily:'"Playfair Display",serif', fontSize:15, fontWeight:600, color:'#5D4037' }}>Live Map</p>
-              <p style={{ fontSize:12, color:'#B0998B', lineHeight:1.5 }}>Real-time delivery map coming soon</p>
-            </div>
+            {/* Live Tracking Map */}
+            {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && order.address?.latitude && order.address?.longitude ? (
+              <div style={{ height: 320, width: '100%', borderRadius: 20, overflow: 'hidden', boxShadow: '0 4px 16px rgba(43,24,16,0.06)', border: '1px solid rgba(93,64,55,0.1)' }}>
+                <OrderTrackingMap
+                  cafeLat={19.0760}
+                  cafeLng={72.8777}
+                  customerLat={order.address.latitude}
+                  customerLng={order.address.longitude}
+                  riderLat={riderCoords?.latitude ?? null}
+                  riderLng={riderCoords?.longitude ?? null}
+                />
+              </div>
+            ) : (
+              <div style={{
+                background:'linear-gradient(135deg,rgba(79,111,82,0.08),rgba(93,64,55,0.06))',
+                borderRadius:20, border:'1.5px dashed rgba(93,64,55,0.2)',
+                padding:'32px', textAlign:'center', display:'flex', flexDirection:'column', alignItems:'center', gap:10,
+              }}>
+                <div style={{ fontSize:32 }}>🗺️</div>
+                <p style={{ fontFamily:'"Playfair Display",serif', fontSize:15, fontWeight:600, color:'#5D4037' }}>Live Map</p>
+                <p style={{ fontSize:12, color:'#B0998B', lineHeight:1.5 }}>
+                  {order.status === 'DELIVERED' ? 'Delivery completed!' :
+                   order.status === 'CANCELLED' ? 'Order cancelled' :
+                   'Map tracking will appear when address coordinates are available'}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* ── Right: Order Summary ── */}
@@ -375,7 +456,7 @@ export default function OrderTrackingPage() {
                   <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                     <div style={{ width:36, height:36, borderRadius:'50%', background:'linear-gradient(135deg,#5D4037,#3E2723)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>🛵</div>
                     <div>
-                      <div style={{ fontSize:13.5, fontWeight:600, color:'#2B1810' }}>Arjun Kumar</div>
+                      <div style={{ fontSize:13.5, fontWeight:600, color:'#2B1810' }}>{order.rider?.name || 'Assigned Rider'}</div>
                       <div style={{ fontSize:11.5, color:'#9E7B6D' }}>ETA: {getEstimatedTime()}</div>
                     </div>
                   </div>

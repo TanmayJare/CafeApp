@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
-type OrderStatus = 'PLACED' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
+type OrderStatus = 'PLACED' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
 
 interface OrderItem {
   id: string;
@@ -39,7 +39,9 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; bg: str
   ACCEPTED:  { label:'Accepted',           color:'#C9964A', bg:'rgba(201,150,74,0.12)',    icon:CheckCircle, step:1 },
   PREPARING: { label:'Preparing',          color:'#D4AF37', bg:'rgba(212,175,55,0.12)',    icon:ChefHat,     step:2 },
   READY:     { label:'Ready for Delivery', color:'#6DBF7E', bg:'rgba(109,191,126,0.12)',   icon:Bike,        step:3 },
-  DELIVERED: { label:'Delivered',          color:'#4F7A54', bg:'rgba(79,122,84,0.12)',     icon:Home,        step:4 },
+  ASSIGNED:  { label:'Assigned',           color:'#0284C7', bg:'rgba(14,165,233,0.12)',    icon:Bike,        step:3 },
+  OUT_FOR_DELIVERY: { label:'Out for Delivery', color:'#4F46E5', bg:'rgba(99,102,241,0.12)', icon:Bike,        step:4 },
+  DELIVERED: { label:'Delivered',          color:'#4F7A54', bg:'rgba(79,122,84,0.12)',     icon:Home,        step:5 },
   CANCELLED: { label:'Cancelled',          color:'#A94442', bg:'rgba(169,68,66,0.1)',      icon:Package,     step:-1 },
 };
 

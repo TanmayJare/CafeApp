@@ -5,13 +5,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/auth-store';
 import { authApi } from '@/lib/api';
-import { Coffee, LayoutDashboard, ClipboardList, UtensilsCrossed, LogOut, ChevronRight, Sparkles } from 'lucide-react';
+import { Coffee, LayoutDashboard, ClipboardList, UtensilsCrossed, LogOut, ChevronRight, Sparkles, Receipt, ShieldAlert } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/dashboard',        label: 'Dashboard',  icon: LayoutDashboard },
   { href: '/orders',           label: 'Orders',     icon: ClipboardList },
   { href: '/menu',             label: 'Menu',       icon: UtensilsCrossed },
   { href: '/menu/specials',    label: 'Specials',   icon: Sparkles },
+  { href: '/billing',          label: 'Billing',    icon: Receipt },
 ];
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
@@ -69,7 +70,12 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
 
         {/* Nav */}
         <nav style={{ padding: '16px 12px', flex: 1 }}>
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+          {[
+            ...NAV_ITEMS,
+            ...(user?.role === 'SUPER_ADMIN'
+              ? [{ href: '/admin', label: 'Admin Control', icon: ShieldAlert }]
+              : []),
+          ].map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
             return (
               <Link key={href} href={href} style={{ textDecoration: 'none', display: 'block', marginBottom: 4 }}>

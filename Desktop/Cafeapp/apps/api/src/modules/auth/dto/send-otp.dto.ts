@@ -1,8 +1,9 @@
-import { IsEmail } from 'class-validator';
+import { IsString, Matches } from 'class-validator';
 
 export class SendOtpDto {
-  @IsEmail()
-  email: string;
+  @IsString()
+  @Matches(/^\+[1-9]\d{7,14}$/, {
+    message: 'Phone number must be in valid E.164 format (e.g. +919876543210)',
+  })
+  phone: string;
 }
-
-// Made with Bob

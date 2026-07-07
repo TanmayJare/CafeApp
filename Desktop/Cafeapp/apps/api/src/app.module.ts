@@ -11,7 +11,10 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { RidersModule } from './modules/riders/riders.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { MapsModule } from './modules/maps/maps.module';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -28,6 +31,9 @@ import { ThrottlerModule } from '@nestjs/throttler';
     PaymentsModule,
     RidersModule,
     InvoicesModule,
+    BillingModule,
+    MapsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

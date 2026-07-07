@@ -24,7 +24,7 @@ interface Address {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user, token, refreshToken, setAuth } = useAuthStore();
   const { items, getTotal, clearCart } = useCartStore();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -34,11 +34,50 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Name validation states
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [savingName, setSavingName] = useState(false);
+
+  // Client hydration check state
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     if (!isAuthenticated()) { router.push('/login'); return; }
-    if (items.length === 0) { router.push('/cart'); return; }
+    if (user && (!user.name || !user.name.trim())) {
+      setShowNameModal(true);
+    }
     fetchAddresses();
-  }, []);
+  }, [user]);
+
+  useEffect(() => {
+    if (mounted && items.length === 0) {
+      router.push('/cart');
+    }
+  }, [mounted, items, router]);
+
+  const handleSaveName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nameInput.trim()) {
+      setNameError('Name cannot be empty');
+      return;
+    }
+    setNameError('');
+    setSavingName(true);
+    try {
+      const res = await api.patch('/auth/me', { name: nameInput.trim() });
+      if (user && token) {
+        setAuth({ ...user, name: res.data.name }, token, refreshToken || undefined);
+      }
+      setShowNameModal(false);
+    } catch (err: any) {
+      setNameError('Failed to save name. Please try again.');
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const fetchAddresses = async () => {
     try {
@@ -62,6 +101,10 @@ export default function CheckoutPage() {
   };
 
   const handlePlaceOrder = async () => {
+    if (!user?.name || !user.name.trim()) {
+      setShowNameModal(true);
+      return;
+    }
     if (!selectedAddress) { setError('Please select a delivery address'); return; }
     setError('');
     setSubmitting(true);
@@ -79,7 +122,7 @@ export default function CheckoutPage() {
     }
   };
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
       <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#FAF8F5' }}>
         <div style={{ textAlign:'center' }}>
@@ -315,6 +358,33 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {showNameModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 20, padding: 24, width: '100%', maxWidth: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+            <h3 style={{ fontFamily: '"Playfair Display",serif', fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Enter Your Name</h3>
+            <p style={{ fontSize: 13.5, color: '#666', marginBottom: 20 }}>To place an order, please provide your name. This helps us personalize your billing and receipts.</p>
+            <form onSubmit={handleSaveName}>
+              <input
+                type="text"
+                required
+                placeholder="Your Full Name"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1.5px solid rgba(93,64,55,0.2)', fontSize: 14, marginBottom: 16, boxSizing: 'border-box' }}
+              />
+              {nameError && <div style={{ color: '#D9534F', fontSize: 13, marginBottom: 16 }}>{nameError}</div>}
+              <button
+                type="submit"
+                disabled={savingName}
+                style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg,#2B1810,#5D4037)', color: '#FFF', border: 'none', borderRadius: 12, fontWeight: 600, cursor: 'pointer', fontFamily: '"Playfair Display",serif' }}
+              >
+                {savingName ? 'Saving...' : 'Save and Continue'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>

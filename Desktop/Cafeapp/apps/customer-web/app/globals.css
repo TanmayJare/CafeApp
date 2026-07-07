@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 @theme {
   /* ─── Premium Café Color Palette ─────────────────────────────────────── */
@@ -252,7 +253,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 .btn-ghost:hover { background: rgba(232,220,203,0.85); border-color: rgba(93,64,55,0.35); }
 
-/* ─── Section headings ───────────────────────────────────────────────────── */
+/* Section headings */
 .section-eyebrow {
   font-size: 11px;
   font-weight: 700;
@@ -273,6 +274,36 @@ h1, h2, h3, h4, h5, h6 {
   color: #9E7B6D;
   line-height: 1.65;
   margin-top: 6px;
+}
+
+/* ─── Leaflet Maps Overrides ─── */
+.leaflet-container {
+  font-family: 'Inter', sans-serif !important;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(43, 24, 16, 0.08);
+}
+.leaflet-bar {
+  border: 1px solid rgba(93, 64, 55, 0.15) !important;
+  box-shadow: 0 4px 12px rgba(43, 24, 16, 0.08) !important;
+}
+.leaflet-bar a {
+  background-color: #FAF8F5 !important;
+  color: #2B1810 !important;
+  border-bottom: 1px solid rgba(93, 64, 55, 0.1) !important;
+  transition: all 0.2s;
+}
+.leaflet-bar a:hover {
+  background-color: #E8DCCB !important;
+}
+.leaflet-popup-content-wrapper {
+  background-color: #FAF8F5 !important;
+  color: #2B1810 !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(93, 64, 55, 0.15) !important;
+  box-shadow: 0 8px 24px rgba(43, 24, 16, 0.12) !important;
+}
+.leaflet-popup-tip {
+  background-color: #FAF8F5 !important;
 }
 
 /* Made with Bob */

@@ -3,27 +3,33 @@ import {
   UnauthorizedException,
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { MailService } from './mail.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-    private mailService: MailService,
+    private whatsappService: WhatsappService,
     private configService: ConfigService,
   ) {}
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
-  private signTokens(user: { id: string; email: string; role: string }) {
+  private signTokens(user: { id: string; phone: string; role: string; name: string | null }) {
     const accessToken = this.jwtService.sign(
-      { sub: user.id, email: user.email, role: user.role },
+      { sub: user.id, phone: user.phone, role: user.role, name: user.name },
       { expiresIn: this.configService.get('JWT_EXPIRES_IN') || '15m' },
     );
     const refreshToken = this.jwtService.sign(
@@ -35,9 +41,9 @@ export class AuthService {
 
   private safeUser(user: {
     id: string;
-    email: string;
+    email: string | null;
     name: string | null;
-    phone: string | null;
+    phone: string;
     role: string;
   }) {
     return {
@@ -51,31 +57,65 @@ export class AuthService {
 
   // ─── Customer OTP Auth ───────────────────────────────────────────────────
 
-  async sendOTP(email: string) {
-    const cleanEmail = email.toLowerCase().trim();
-    // Delete any existing (unused) OTPs for this email to prevent accumulation
-    await this.prisma.otpVerification.deleteMany({ where: { email: cleanEmail } });
+  async sendOTP(phone: string) {
+    const cleanPhone = phone.trim();
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-
-    await this.prisma.otpVerification.create({
-      data: { email: cleanEmail, code, expiresAt },
+    // Enforce rate limit
+    const limitWindowMin = this.configService.get<number>('OTP_RATE_LIMIT_WINDOW_MINUTES', 10);
+    const limitWindow = new Date(Date.now() - limitWindowMin * 60 * 1000);
+    const sendCount = await this.prisma.otpVerification.count({
+      where: {
+        phone: cleanPhone,
+        createdAt: { gte: limitWindow },
+      },
     });
 
-    await this.mailService.sendOTP(cleanEmail, code);
+    const maxSends = this.configService.get<number>('OTP_RATE_LIMIT_MAX', 3);
+    if (sendCount >= maxSends) {
+      throw new HttpException(
+        'Too many OTP requests. Please try again later.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
 
-    return { message: 'OTP sent successfully', email: cleanEmail };
+    // Generate 6-digit OTP
+    const code = crypto.randomInt(100000, 1000000).toString();
+    const codeHash = await bcrypt.hash(code, 10);
+
+    const expiryMinutes = this.configService.get<number>('OTP_EXPIRY_MINUTES', 5);
+    const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
+
+    // Save to DB
+    await this.prisma.otpVerification.create({
+      data: { phone: cleanPhone, codeHash, expiresAt },
+    });
+
+    // Development fallback log
+    const isDev = this.configService.get<string>('NODE_ENV') !== 'production';
+    if (isDev) {
+      this.logger.warn(`\n\n  ╔══════════════════════════════════╗`);
+      this.logger.warn(`  ║  🟢  WhatsApp OTP requested for: ${cleanPhone}`);
+      this.logger.warn(`  ║  🔑  OTP Code: ${code}`);
+      this.logger.warn(`  ╚══════════════════════════════════╝\n`);
+    }
+
+    // Send via WhatsApp service
+    await this.whatsappService.sendOtp(cleanPhone, code);
+
+    return {
+      message: 'OTP sent successfully',
+      phone: cleanPhone,
+      ...(isDev ? { code } : {}),
+    };
   }
 
-  async verifyOTP(email: string, code: string) {
-    // Sanitise: strip all whitespace and non-digit chars the browser may inject
+  async verifyOTP(phone: string, code: string) {
     const cleanCode = code.replace(/\D/g, '').trim();
+    const cleanPhone = phone.trim();
 
     const otpRecord = await this.prisma.otpVerification.findFirst({
       where: {
-        email: email.toLowerCase().trim(),
-        code: cleanCode,
+        phone: cleanPhone,
         expiresAt: { gt: new Date() },
       },
       orderBy: { createdAt: 'desc' },
@@ -85,18 +125,38 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired OTP');
     }
 
-    // Consume the OTP immediately
-    await this.prisma.otpVerification.delete({ where: { id: otpRecord.id } });
+    if (otpRecord.attempts >= 5) {
+      throw new UnauthorizedException('Too many failed attempts. Please request a new OTP.');
+    }
 
-    // Use the sanitised email consistently — the OTP was stored against cleanEmail
-    const normalizedEmail = email.toLowerCase().trim();
+    // Compare code hash
+    const isValid = await bcrypt.compare(cleanCode, otpRecord.codeHash);
+    if (!isValid) {
+      await this.prisma.otpVerification.update({
+        where: { id: otpRecord.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new UnauthorizedException('Invalid or expired OTP');
+    }
 
-    // Find or create the customer — customers are auto-registered on first login
-    let user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    // Consume OTP
+    await this.prisma.otpVerification.deleteMany({ where: { phone: cleanPhone } });
+
+    // Find or create customer
+    let user = await this.prisma.user.findUnique({ where: { phone: cleanPhone } });
 
     if (!user) {
       user = await this.prisma.user.create({
-        data: { email: normalizedEmail, role: 'CUSTOMER' },
+        data: {
+          phone: cleanPhone,
+          role: 'CUSTOMER',
+          isVerified: true,
+        },
+      });
+    } else if (!user.isVerified) {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { isVerified: true },
       });
     }
 
@@ -104,18 +164,13 @@ export class AuthService {
       throw new UnauthorizedException('Your account has been deactivated. Contact support.');
     }
 
-    // Allow users with any role (STAFF, RIDER, SUPER_ADMIN) to log in to their customer profiles/app
-    // if (user.role !== 'CUSTOMER') {
-    //   throw new UnauthorizedException('This login is for customers only');
-    // }
-
     const { accessToken, refreshToken } = this.signTokens(user);
 
     return {
       accessToken,
       refreshToken,
       user: this.safeUser(user),
-      isNewUser: !user.name, // Flag for onboarding flow
+      isNewUser: !user.name,
     };
   }
 
@@ -180,6 +235,7 @@ export class AuthService {
   async createStaffAccount(
     email: string,
     name: string,
+    phone: string,
     password: string,
     role: 'STAFF' | 'SUPER_ADMIN' = 'STAFF',
   ) {
@@ -189,7 +245,7 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(password, 12);
 
     const user = await this.prisma.user.create({
-      data: { email, name, passwordHash, role },
+      data: { email, name, phone, passwordHash, role },
     });
 
     return { message: 'Staff account created', user: this.safeUser(user) };
